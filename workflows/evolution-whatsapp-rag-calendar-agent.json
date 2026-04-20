@@ -1,0 +1,507 @@
+{
+  "name": "Evolution WhatsApp RAG Calendar Agent",
+  "nodes": [
+    {
+      "parameters": {
+        "content": "Configura este workflow antes de activarlo:\\n1. Asigna credenciales a `OpenAI Chat Model`, `Embeddings OpenAI` y `Redis Chat Memory`.\\n2. Asigna credenciales PostgreSQL al nodo `RAG Company Knowledge` con host `postgres`, puerto `5432`, base `rag`.\\n3. Edita el nodo `Normalize Evolution Message` para poner tu `evolutionApiKey` real si no quieres gestionarlo por credenciales.\\n4. Configura el nodo `Google Calendar MCP Tool` apuntando a tu servidor MCP real, por ejemplo `http://host.docker.internal:3001/mcp`.\\n5. En Evolution configura el webhook de entrada hacia la URL de producción de este workflow.\\n\\nEste flujo está pensado para mensajes entrantes de WhatsApp, agrupa mensajes recibidos en una ventana de 5 segundos y solo deja continuar a la última ejecución.",
+        "height": 430,
+        "width": 493,
+        "color": 7
+      },
+      "id": "cdd2d2d3-b350-42c9-afae-f2fe3e4a5994",
+      "name": "Notas de Setup",
+      "type": "n8n-nodes-base.stickyNote",
+      "typeVersion": 1,
+      "position": [
+        -1440,
+        -160
+      ]
+    },
+    {
+      "parameters": {
+        "content": "El agente usa dos capas de contexto:\\n- Redis Buffer: agrupa varios mensajes seguidos en 5 segundos\\n- Redis Chat Memory: mantiene memoria conversacional entre turnos\\n\\nEl RAG va como herramienta de consulta y Google Calendar entra por MCP Tool para crear, consultar, modificar y cancelar citas.",
+        "height": 260,
+        "width": 401,
+        "color": 5
+      },
+      "id": "1b5629e8-9720-41d6-8dc8-c7ea05a6f595",
+      "name": "Notas de Arquitectura",
+      "type": "n8n-nodes-base.stickyNote",
+      "typeVersion": 1,
+      "position": [
+        -220,
+        -164
+      ]
+    },
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "evolution-whatsapp-agent",
+        "responseMode": "onReceived",
+        "options": {
+          "responseData": "ok"
+        }
+      },
+      "id": "54430ebd-c7c3-4f79-b948-e01f500f723c",
+      "name": "Evolution Incoming Webhook",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2,
+      "position": [
+        -1220,
+        240
+      ],
+      "webhookId": "evolution-whatsapp-agent"
+    },
+    {
+      "parameters": {
+        "mode": "runOnceForEachItem",
+        "language": "javaScript",
+        "jsCode": "const body = $json.body ?? $json;\nconst data = body.data ?? body;\nconst key = data.key ?? {};\nconst message = data.message ?? {};\nconst fromMe = key.fromMe ?? data.fromMe ?? false;\nconst remoteJid = key.remoteJid ?? data.remoteJid ?? data.from ?? body.sender ?? '';\nconst text = message.conversation ?? message.extendedTextMessage?.text ?? message.imageMessage?.caption ?? message.videoMessage?.caption ?? data.body ?? body.body ?? '';\nif (fromMe || !remoteJid || !text) {\n  return [];\n}\nconst messageId = key.id ?? data.id ?? `${Date.now()}`;\nconst instanceName = body.instance ?? body.instanceName ?? data.instance ?? 'CHANGE_ME';\nconst sessionId = remoteJid.replace(/[^a-zA-Z0-9:_-]/g, '_');\nconst pushName = data.pushName ?? body.pushName ?? '';\nreturn {\n  json: {\n    rawBody: body,\n    remoteJid,\n    pushName,\n    text,\n    chatInput: text,\n    messageId,\n    instanceName,\n    sessionId,\n    memorySessionId: `wa-memory:${sessionId}`,\n    bufferKey: `wa-buffer:${sessionId}`,\n    evolutionBaseUrl: 'http://evolution-api:8080',\n    evolutionApiKey: 'change-me',\n    googleCalendarMcpUrl: 'http://host.docker.internal:3001/mcp'\n  }\n};"
+      },
+      "id": "51c9e3f2-df26-452d-bd82-851b2a947fe2",
+      "name": "Normalize Evolution Message",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -980,
+        240
+      ]
+    },
+    {
+      "parameters": {
+        "operation": "get",
+        "propertyName": "bufferSnapshot",
+        "key": "={{ $json.bufferKey }}",
+        "keyType": "string",
+        "options": {}
+      },
+      "id": "54c01f13-9a2a-4280-b7c2-665543659b64",
+      "name": "Get Buffer Snapshot",
+      "type": "n8n-nodes-base.redis",
+      "typeVersion": 1,
+      "position": [
+        -760,
+        240
+      ]
+    },
+    {
+      "parameters": {
+        "mode": "runOnceForEachItem",
+        "language": "javaScript",
+        "jsCode": "let previous = null;\ntry {\n  previous = $json.bufferSnapshot ? JSON.parse($json.bufferSnapshot) : null;\n} catch (error) {\n  previous = null;\n}\nconst now = Date.now();\nconst withinWindow = previous && Number(previous.updatedAt || 0) >= now - 5000;\nconst mergedText = [withinWindow ? previous.text : '', $json.text].filter(Boolean).join('\\n');\nconst debounceToken = `${$json.messageId}:${now}`;\nconst payload = {\n  token: debounceToken,\n  text: mergedText,\n  updatedAt: now,\n  remoteJid: $json.remoteJid,\n  pushName: $json.pushName,\n  instanceName: $json.instanceName\n};\nreturn {\n  json: {\n    ...$json,\n    chatInput: mergedText,\n    debounceToken,\n    bufferPayload: JSON.stringify(payload)\n  }\n};"
+      },
+      "id": "a8f6b5e0-76ad-4f4b-96c5-e0b895d9821e",
+      "name": "Merge 5s Buffer",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -540,
+        240
+      ]
+    },
+    {
+      "parameters": {
+        "operation": "set",
+        "key": "={{ $json.bufferKey }}",
+        "value": "={{ $json.bufferPayload }}"
+      },
+      "id": "e263cfd2-8bd5-4f7b-863e-e2da731f57e0",
+      "name": "Set Buffer Snapshot",
+      "type": "n8n-nodes-base.redis",
+      "typeVersion": 1,
+      "position": [
+        -320,
+        240
+      ]
+    },
+    {
+      "parameters": {
+        "resume": "timeInterval",
+        "amount": 5,
+        "unit": "seconds"
+      },
+      "id": "8fbc7e33-6930-4fe2-ab3b-56993a38d6d3",
+      "name": "Wait 5 Seconds",
+      "type": "n8n-nodes-base.wait",
+      "typeVersion": 1,
+      "position": [
+        -100,
+        240
+      ]
+    },
+    {
+      "parameters": {
+        "operation": "get",
+        "propertyName": "latestBuffer",
+        "key": "={{ $json.bufferKey }}",
+        "keyType": "string",
+        "options": {}
+      },
+      "id": "c68e9bc6-8db8-41ef-a4ba-15f2414c59b5",
+      "name": "Get Latest Buffer",
+      "type": "n8n-nodes-base.redis",
+      "typeVersion": 1,
+      "position": [
+        120,
+        240
+      ]
+    },
+    {
+      "parameters": {
+        "mode": "runOnceForEachItem",
+        "language": "javaScript",
+        "jsCode": "let latest = null;\ntry {\n  latest = $json.latestBuffer ? JSON.parse($json.latestBuffer) : null;\n} catch (error) {\n  latest = null;\n}\nif (!latest || latest.token !== $json.debounceToken) {\n  return [];\n}\nreturn {\n  json: {\n    ...$json,\n    chatInput: latest.text,\n    groupedMessageText: latest.text\n  }\n};"
+      },
+      "id": "ff02d2c0-1910-4c08-9f12-a9ea7097919d",
+      "name": "Only Latest Execution Continues",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        340,
+        240
+      ]
+    },
+    {
+      "parameters": {
+        "promptType": "auto",
+        "hasOutputParser": false,
+        "needsFallback": false,
+        "options": {
+          "systemMessage": "=Eres un asistente de WhatsApp para una empresa. Tu trabajo es responder con claridad, usando siempre el idioma del cliente, ser breve pero útil, consultar la base de conocimiento cuando pregunten por servicios, precios, procesos o información de empresa, y gestionar citas cuando el usuario quiera reservar, cambiar, cancelar o consultar disponibilidad.\\n\\nReglas:\\n- Usa la herramienta `company_knowledge` siempre que la pregunta requiera información de la empresa o políticas internas.\\n- Usa la herramienta MCP de Google Calendar para consultar disponibilidad, crear citas, mover citas y cancelarlas.\\n- Si una franja no está disponible, ofrece alternativas cercanas.\\n- No inventes disponibilidad ni datos de la empresa.\\n- Si falta información para reservar, pide solo los datos mínimos necesarios.\\n- La respuesta final debe ser texto plano, lista para enviar por WhatsApp.\\n- Nunca expliques herramientas internas, MCP, Redis o RAG al cliente.",
+          "maxIterations": 8,
+          "returnIntermediateSteps": false,
+          "passthroughBinaryImages": true,
+          "enableStreaming": false
+        }
+      },
+      "id": "7d3f2d88-8f94-4ab0-b5d4-3d23bc8cc1b7",
+      "name": "AI Agent",
+      "type": "@n8n/n8n-nodes-langchain.agent",
+      "typeVersion": 3.1,
+      "position": [
+        940,
+        240
+      ]
+    },
+    {
+      "parameters": {
+        "model": "gpt-5-mini",
+        "options": {}
+      },
+      "id": "adccfe6b-95d4-4053-b58b-566a3b019821",
+      "name": "OpenAI Chat Model",
+      "type": "@n8n/n8n-nodes-langchain.lmChatOpenAi",
+      "typeVersion": 1.1,
+      "position": [
+        760,
+        460
+      ]
+    },
+    {
+      "parameters": {
+        "sessionKey": "={{ $json.memorySessionId }}",
+        "sessionTTL": 0
+      },
+      "id": "0ff37b47-e791-4fd6-9387-092ad78ffceb",
+      "name": "Redis Chat Memory",
+      "type": "@n8n/n8n-nodes-langchain.memoryRedisChat",
+      "typeVersion": 1.1,
+      "position": [
+        980,
+        460
+      ]
+    },
+    {
+      "parameters": {
+        "mode": "retrieve-as-tool",
+        "toolName": "company_knowledge",
+        "toolDescription": "Usa esta herramienta para responder preguntas sobre la empresa, servicios, condiciones, procesos, políticas, horarios y contexto del negocio usando la base vectorial local.",
+        "tableName": "n8n_rag_documents",
+        "topK": 5,
+        "includeDocumentMetadata": true,
+        "useReranker": false,
+        "options": {
+          "distanceStrategy": "cosine",
+          "columnNames": {
+            "values": {
+              "idColumnName": "id",
+              "vectorColumnName": "embedding",
+              "contentColumnName": "text",
+              "metadataColumnName": "metadata"
+            }
+          }
+        }
+      },
+      "id": "b2ad266d-1d59-4e98-9c60-f2977ce3c24d",
+      "name": "RAG Company Knowledge",
+      "type": "@n8n/n8n-nodes-langchain.vectorStorePGVector",
+      "typeVersion": 1.2,
+      "position": [
+        1180,
+        460
+      ]
+    },
+    {
+      "parameters": {
+        "model": "text-embedding-3-small",
+        "options": {
+          "dimensions": 1536,
+          "batchSize": 100,
+          "stripNewLines": true
+        }
+      },
+      "id": "76726ca6-b383-48ca-b4d1-513ad397a1de",
+      "name": "Embeddings OpenAI",
+      "type": "@n8n/n8n-nodes-langchain.embeddingsOpenAi",
+      "typeVersion": 1.2,
+      "position": [
+        1380,
+        460
+      ]
+    },
+    {
+      "parameters": {
+        "endpointUrl": "={{ $json.googleCalendarMcpUrl }}",
+        "serverTransport": "httpStreamable",
+        "authentication": "none",
+        "include": "all",
+        "options": {
+          "timeout": 60000
+        }
+      },
+      "id": "bcff9156-f2f3-4ca1-85f6-16c5f38041db",
+      "name": "Google Calendar MCP Tool",
+      "type": "@n8n/n8n-nodes-langchain.mcpClientTool",
+      "typeVersion": 1.2,
+      "position": [
+        1580,
+        460
+      ]
+    },
+    {
+      "parameters": {
+        "mode": "runOnceForEachItem",
+        "language": "javaScript",
+        "jsCode": "const responseText = $json.output ?? $json.response ?? 'No he podido procesar tu solicitud ahora mismo.';\nconst targetNumber = ($json.remoteJid || '').replace(/@s\\.whatsapp\\.net$/, '').replace(/@g\\.us$/, '');\nreturn {\n  json: {\n    ...$json,\n    responseText,\n    targetNumber,\n    evolutionSendUrl: `${$json.evolutionBaseUrl}/message/sendText/${$json.instanceName}`\n  }\n};"
+      },
+      "id": "32e9f627-44eb-4a85-ae57-afc0cfd208f3",
+      "name": "Prepare WhatsApp Reply",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1180,
+        240
+      ]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "={{ $json.evolutionSendUrl }}",
+        "sendHeaders": true,
+        "specifyHeaders": "keypair",
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "apikey",
+              "value": "={{ $json.evolutionApiKey }}"
+            },
+            {
+              "name": "Content-Type",
+              "value": "application/json"
+            }
+          ]
+        },
+        "sendBody": true,
+        "contentType": "json",
+        "specifyBody": "json",
+        "jsonBody": "={{ { number: $json.targetNumber, text: $json.responseText } }}"
+      },
+      "id": "0d994211-b75e-476b-80f1-62ad7a88bf43",
+      "name": "Send WhatsApp Reply via Evolution",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        1420,
+        240
+      ]
+    }
+  ],
+  "connections": {
+    "Evolution Incoming Webhook": {
+      "main": [
+        [
+          {
+            "node": "Normalize Evolution Message",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Normalize Evolution Message": {
+      "main": [
+        [
+          {
+            "node": "Get Buffer Snapshot",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Get Buffer Snapshot": {
+      "main": [
+        [
+          {
+            "node": "Merge 5s Buffer",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Merge 5s Buffer": {
+      "main": [
+        [
+          {
+            "node": "Set Buffer Snapshot",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Set Buffer Snapshot": {
+      "main": [
+        [
+          {
+            "node": "Wait 5 Seconds",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Wait 5 Seconds": {
+      "main": [
+        [
+          {
+            "node": "Get Latest Buffer",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Get Latest Buffer": {
+      "main": [
+        [
+          {
+            "node": "Only Latest Execution Continues",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Only Latest Execution Continues": {
+      "main": [
+        [
+          {
+            "node": "AI Agent",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "OpenAI Chat Model": {
+      "ai_languageModel": [
+        [
+          {
+            "node": "AI Agent",
+            "type": "ai_languageModel",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Redis Chat Memory": {
+      "ai_memory": [
+        [
+          {
+            "node": "AI Agent",
+            "type": "ai_memory",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "RAG Company Knowledge": {
+      "ai_tool": [
+        [
+          {
+            "node": "AI Agent",
+            "type": "ai_tool",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Embeddings OpenAI": {
+      "ai_embedding": [
+        [
+          {
+            "node": "RAG Company Knowledge",
+            "type": "ai_embedding",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Google Calendar MCP Tool": {
+      "ai_tool": [
+        [
+          {
+            "node": "AI Agent",
+            "type": "ai_tool",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "AI Agent": {
+      "main": [
+        [
+          {
+            "node": "Prepare WhatsApp Reply",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Prepare WhatsApp Reply": {
+      "main": [
+        [
+          {
+            "node": "Send WhatsApp Reply via Evolution",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "pinData": {},
+  "settings": {
+    "executionOrder": "v1"
+  },
+  "staticData": null,
+  "meta": {
+    "templateCredsSetupCompleted": false
+  },
+  "active": false,
+  "versionId": "341a0fdd-f7ae-4eb0-9517-a03763515c0c",
+  "tags": []
+}

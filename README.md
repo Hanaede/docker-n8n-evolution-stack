@@ -281,6 +281,65 @@ FROM n8n_rag_documents
 LIMIT 10;
 ```
 
+### Evolution WhatsApp RAG Calendar Agent
+
+Archivo:
+
+- [`workflows/evolution-whatsapp-rag-calendar-agent.json`](workflows/evolution-whatsapp-rag-calendar-agent.json)
+
+Este workflow está orientado a atención por WhatsApp con IA y hace lo siguiente:
+
+- recibe mensajes entrantes desde Evolution API por webhook
+- agrupa mensajes del mismo usuario dentro de una ventana de 5 segundos usando Redis
+- mantiene memoria conversacional en Redis
+- consulta la base vectorial local en PostgreSQL/pgvector como herramienta RAG
+- usa un `MCP Client Tool` para conectar con un servidor MCP de Google Calendar
+- responde al usuario por WhatsApp a través de Evolution API
+
+#### Qué necesitas configurar
+
+Antes de activarlo:
+
+- `OpenAI Chat Model`
+  - credencial de OpenAI
+- `Embeddings OpenAI`
+  - credencial de OpenAI
+- `Redis Chat Memory`
+  - credencial Redis apuntando a `redis:6379`
+- `RAG Company Knowledge`
+  - credencial PostgreSQL apuntando a:
+    - Host: `postgres`
+    - Puerto: `5432`
+    - Base de datos: `rag`
+    - Usuario: valor de `POSTGRES_USER`
+    - Contraseña: valor de `POSTGRES_PASSWORD`
+- `Google Calendar MCP Tool`
+  - endpoint real de tu servidor MCP para Google Calendar
+- `Normalize Evolution Message`
+  - sustituir `evolutionApiKey: 'change-me'` por tu API key real de Evolution
+  - si lo necesitas, ajustar `googleCalendarMcpUrl`
+
+#### Configurar Evolution para este workflow
+
+Cuando el workflow esté activo, usa su webhook de producción como URL en Evolution.
+
+Path del webhook:
+
+- `evolution-whatsapp-agent`
+
+Si Evolution y n8n están en la misma red Docker, la URL interna será:
+
+```text
+http://n8n:5678/webhook/evolution-whatsapp-agent
+```
+
+#### Qué hace el buffer de Redis
+
+Este workflow guarda temporalmente el texto del usuario en Redis y espera 5 segundos.
+Si el usuario manda varios mensajes seguidos, solo la última ejecución continúa y procesa el mensaje combinado.
+
+Eso ayuda a que el agente responda con el contexto completo en vez de reaccionar línea por línea.
+
 ## Configuración del webhook de Evolution API
 
 Si quieres que Evolution API envíe mensajes entrantes de WhatsApp a n8n:
