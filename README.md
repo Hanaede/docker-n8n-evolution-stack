@@ -1,29 +1,29 @@
-# n8n + PostgreSQL/pgvector + Redis + Evolution API for Docker Desktop
+# n8n + PostgreSQL/pgvector + Redis + Evolution API para Docker Desktop
 
-A ready-to-run local stack for building WhatsApp AI agents with:
+Un stack local listo para usar y crear agentes de IA por WhatsApp con:
 
-- `n8n` for workflow orchestration
-- `PostgreSQL + pgvector` for RAG and vector search
-- `Redis` for memory, buffering, and cache
-- `Evolution API` for WhatsApp connectivity
+- `n8n` para la orquestación de workflows
+- `PostgreSQL + pgvector` para RAG y búsqueda vectorial
+- `Redis` para memoria, buffering y caché
+- `Evolution API` para la conectividad con WhatsApp
 
-This project is designed for `Docker Desktop` on both `Windows` and `macOS` and can be started with a single command.
+Este proyecto está pensado para `Docker Desktop` tanto en `Windows` como en `macOS` y se puede levantar con un solo comando.
 
-## What You Get
+## Qué incluye
 
-- Local `n8n` instance connected to PostgreSQL
-- `PostgreSQL` with `pgvector` enabled
-- Persistent `Redis`
-- Local `Evolution API` connected to PostgreSQL and Redis
-- Separate databases for:
+- Instancia local de `n8n` conectada a PostgreSQL
+- `PostgreSQL` con `pgvector` habilitado
+- `Redis` persistente
+- `Evolution API` local conectada a PostgreSQL y Redis
+- Bases de datos separadas para:
   - `n8n`
   - `evolution`
   - `rag`
-- Persistent Docker volumes
-- Health checks for all services
-- A starter structure you can adapt for your own AI agent workflows
+- Volúmenes persistentes de Docker
+- Health checks en todos los servicios
+- Una base inicial para que adaptes tus propios workflows de agente IA
 
-## Stack Overview
+## Arquitectura del stack
 
 ```text
 WhatsApp
@@ -33,189 +33,189 @@ WhatsApp
   -> PostgreSQL / pgvector
 ```
 
-Typical use case:
+Caso de uso típico:
 
-- receive WhatsApp messages through Evolution API
-- process them in n8n
-- store/retrieve context in Redis
-- retrieve company knowledge from PostgreSQL vector data
-- send a reply back through Evolution API
+- recibir mensajes de WhatsApp a través de Evolution API
+- procesarlos en n8n
+- guardar o recuperar contexto en Redis
+- consultar conocimiento de empresa en PostgreSQL vectorial
+- enviar la respuesta de vuelta por Evolution API
 
-## Requirements
+## Requisitos
 
-- Docker Desktop installed
-- Docker Desktop running
-- `docker compose` available
+- Docker Desktop instalado
+- Docker Desktop iniciado
+- `docker compose` disponible
 
-Quick check:
+Comprobación rápida:
 
 ```bash
 docker --version
 docker compose version
 ```
 
-## Quick Start
+## Inicio rápido
 
-1. Clone this repository:
+1. Clona este repositorio:
 
 ```bash
 git clone https://github.com/Hanaede/docker-n8n-evolution-stack.git
 cd docker-n8n-evolution-stack
 ```
 
-2. Copy the environment template:
+2. Copia la plantilla de entorno:
 
 ```bash
 cp .env.example .env
 ```
 
-3. Edit `.env` and change at least:
+3. Edita `.env` y cambia al menos:
 
 - `POSTGRES_PASSWORD`
 - `N8N_ENCRYPTION_KEY`
 - `AUTHENTICATION_API_KEY`
-- `TZ` if needed
+- `TZ` si lo necesitas
 
-4. Start the stack:
+4. Levanta el stack:
 
 ```bash
 docker compose up -d
 ```
 
-5. Check the containers:
+5. Comprueba los contenedores:
 
 ```bash
 docker compose ps
 ```
 
-## Service URLs
+## URLs de los servicios
 
 - `n8n`: http://localhost:5678
 - `Evolution API`: http://localhost:8080
 - `PostgreSQL`: localhost:5432
 - `Redis`: localhost:6379
 
-## First Run
+## Primera puesta en marcha
 
 ### n8n
 
-Open:
+Abre:
 
 ```text
 http://localhost:5678
 ```
 
-Create the owner account in the browser on first launch.
+Crea la cuenta owner desde el navegador en el primer acceso.
 
 ### Evolution API
 
-Open:
+Abre:
 
 ```text
 http://localhost:8080
 ```
 
-Create or open your WhatsApp instance, then generate the QR code and scan it with WhatsApp.
+Crea o abre tu instancia de WhatsApp, genera el QR y escanéalo con WhatsApp.
 
-## Databases Created Automatically
+## Bases de datos creadas automáticamente
 
-On first startup, PostgreSQL creates:
+En el primer arranque, PostgreSQL crea:
 
 - `n8n`
 - `evolution`
 - `rag`
 
-It also:
+Además:
 
-- enables `vector` in `n8n`
-- enables `vector` in `rag`
-- creates a starter table in `rag`:
+- habilita `vector` en `n8n`
+- habilita `vector` en `rag`
+- crea una tabla inicial en `rag`:
   - `rag_embeddings`
 
-This makes the stack ready for vector-based retrieval from day one.
+Esto deja el stack preparado para recuperación vectorial desde el primer día.
 
-## Internal Docker Hostnames
+## Hostnames internos de Docker
 
-Inside Docker, services talk to each other by container service name:
+Dentro de Docker, los servicios se comunican entre sí por el nombre del servicio:
 
 - `postgres`
 - `redis`
 - `n8n`
 - `evolution-api`
 
-This is important for webhook setup and inter-service HTTP calls.
+Esto es importante para webhooks y llamadas HTTP entre contenedores.
 
-### Example
+### Ejemplo
 
-From your host machine:
+Desde tu máquina:
 
 - `http://localhost:5678`
 
-From the Evolution API container:
+Desde el contenedor de Evolution API:
 
 - `http://n8n:5678`
 
-Do not use `localhost` between containers.
+No uses `localhost` entre contenedores.
 
-## n8n Connection Settings
+## Configuración de conexiones en n8n
 
-### PostgreSQL for RAG
+### PostgreSQL para RAG
 
-If you create a PostgreSQL credential in n8n for vector search:
+Si creas una credencial PostgreSQL en n8n para búsqueda vectorial:
 
 - Host: `postgres`
-- Port: `5432`
-- Database: value of `RAG_POSTGRES_DB`
-- User: value of `POSTGRES_USER`
-- Password: value of `POSTGRES_PASSWORD`
+- Puerto: `5432`
+- Base de datos: valor de `RAG_POSTGRES_DB`
+- Usuario: valor de `POSTGRES_USER`
+- Contraseña: valor de `POSTGRES_PASSWORD`
 
-### Redis for memory or cache
+### Redis para memoria o caché
 
 - Host: `redis`
-- Port: `6379`
+- Puerto: `6379`
 
-### Evolution API from n8n
+### Evolution API desde n8n
 
-Use:
+Usa:
 
 - Base URL: `http://evolution-api:8080`
 - Header: `apikey: <AUTHENTICATION_API_KEY>`
 
-## Evolution API Webhook Setup
+## Configuración del webhook de Evolution API
 
-If you want Evolution API to send incoming WhatsApp messages to n8n:
+Si quieres que Evolution API envíe mensajes entrantes de WhatsApp a n8n:
 
-- Production webhook URL:
+- URL de producción:
   - `http://n8n:5678/webhook/evolution-incoming`
-- Test webhook URL:
+- URL de test:
   - `http://n8n:5678/webhook-test/evolution-incoming`
 
-Important:
+Importante:
 
-- Use `localhost` only from your browser on your own machine
-- Use `n8n` from one container to another
+- Usa `localhost` solo desde tu navegador en tu propia máquina
+- Usa `n8n` para comunicar un contenedor con otro
 
-## Daily Commands
+## Comandos del día a día
 
-Start or recreate:
+Arrancar o recrear:
 
 ```bash
 docker compose up -d
 ```
 
-Stop:
+Parar:
 
 ```bash
 docker compose stop
 ```
 
-View all logs:
+Ver todos los logs:
 
 ```bash
 docker compose logs -f
 ```
 
-View logs for one service:
+Ver logs de un servicio:
 
 ```bash
 docker compose logs -f n8n
@@ -224,120 +224,120 @@ docker compose logs -f postgres
 docker compose logs -f redis
 ```
 
-Restart one service:
+Reiniciar un servicio:
 
 ```bash
 docker compose restart n8n
 ```
 
-Stop and remove containers without deleting data:
+Parar y borrar contenedores sin eliminar datos:
 
 ```bash
 docker compose down
 ```
 
-Stop and remove everything including volumes:
+Parar y borrar todo, incluidos volúmenes:
 
 ```bash
 docker compose down -v
 ```
 
-## Verification
+## Verificación
 
-### Check stack health
+### Comprobar el estado del stack
 
 ```bash
 docker compose ps
 ```
 
-### Check Redis
+### Comprobar Redis
 
 ```bash
 docker compose exec redis redis-cli ping
 ```
 
-Expected output:
+Salida esperada:
 
 ```text
 PONG
 ```
 
-### Check pgvector
+### Comprobar pgvector
 
 ```bash
 docker compose exec postgres psql -U postgres -d rag -c "\dx"
 docker compose exec postgres psql -U postgres -d rag -c "\d+ rag_embeddings"
 ```
 
-### Check Evolution API
+### Comprobar Evolution API
 
 ```bash
 curl http://localhost:8080
 ```
 
-### Check n8n
+### Comprobar n8n
 
 ```bash
 curl http://localhost:5678/healthz/readiness
 ```
 
-## Troubleshooting
+## Solución de problemas
 
-### QR code does not appear in Evolution API
+### El QR no aparece en Evolution API
 
-If QR generation does not work, make sure you are not using an old Evolution API image.
+Si el QR no se genera, asegúrate de no estar usando una imagen antigua de Evolution API.
 
-This project uses a newer Evolution API image branch to avoid known QR/reconnection issues.
+Este proyecto usa una rama de imagen más nueva para evitar errores conocidos de QR y reconexión.
 
-### Evolution webhook does not trigger n8n
+### El webhook de Evolution no dispara n8n
 
-Most common cause:
+La causa más común es esta:
 
-- webhook URL in Evolution is set to `http://localhost:5678/...`
+- la URL del webhook en Evolution está configurada como `http://localhost:5678/...`
 
-That is wrong from inside Docker.
+Eso es incorrecto dentro de Docker.
 
-Use:
+Usa:
 
 - `http://n8n:5678/webhook/evolution-incoming`
 
-### I can open n8n in the browser, but containers cannot reach it
+### Puedo abrir n8n en el navegador, pero los contenedores no llegan a él
 
-That is expected if you use `localhost`.
+Es normal si estás usando `localhost`.
 
-Use the Docker service name:
+Usa el nombre del servicio Docker:
 
 - `n8n`
 
-### Port already in use
+### El puerto ya está ocupado
 
-Change the port values in `.env`:
+Cambia los valores en `.env`:
 
 - `N8N_PORT`
 - `POSTGRES_PORT`
 - `REDIS_PORT`
 - `EVOLUTION_PORT`
 
-Then restart:
+Después reinicia:
 
 ```bash
 docker compose down
 docker compose up -d
 ```
 
-### Reset everything
+### Quiero resetearlo todo
 
 ```bash
 docker compose down -v
 ```
 
-Then start again:
+Luego vuelve a levantarlo:
 
 ```bash
 docker compose up -d
 ```
 
-## Project Structure
+## Estructura del proyecto
 
 ```text
 .
@@ -350,39 +350,39 @@ docker compose up -d
             └── 01-init.sh
 ```
 
-## Notes
+## Notas
 
-- This project is for local development and self-hosted testing
-- It is not production-hardened by default
-- n8n owner setup is completed in the browser on first launch
-- Secrets should always be customized in `.env`
+- Este proyecto está pensado para desarrollo local y pruebas self-hosted
+- No viene endurecido para producción
+- El owner de n8n se crea desde el navegador en el primer arranque
+- Los secretos deben personalizarse siempre en `.env`
 
-## Recommended Next Steps
+## Siguientes pasos recomendados
 
-After the stack is running, you can:
+Cuando el stack esté funcionando, puedes:
 
-- create your WhatsApp instance in Evolution API
-- configure an incoming webhook from Evolution to n8n
-- create n8n credentials for:
+- crear tu instancia de WhatsApp en Evolution API
+- configurar un webhook de entrada desde Evolution hacia n8n
+- crear credenciales en n8n para:
   - OpenAI
   - PostgreSQL
   - Redis
   - Google Calendar
-- build an AI agent workflow with:
-  - Redis buffering
-  - PostgreSQL vector retrieval
-  - Google Calendar scheduling
-  - Evolution API replies
+- construir un workflow de agente IA con:
+  - buffering en Redis
+  - recuperación vectorial en PostgreSQL
+  - agenda en Google Calendar
+  - respuestas por Evolution API
 
-## License
+## Licencia
 
 MIT
 
-## References
+## Referencias
 
-- [n8n Docker Compose docs](https://docs.n8n.io/hosting/installation/server-setups/docker-compose/)
-- [n8n database environment variables](https://docs.n8n.io/hosting/configuration/environment-variables/database/)
-- [n8n monitoring and health endpoints](https://docs.n8n.io/hosting/logging-monitoring/monitoring/)
-- [Evolution API documentation](https://doc.evolution-api.com/)
+- [Documentación de n8n con Docker Compose](https://docs.n8n.io/hosting/installation/server-setups/docker-compose/)
+- [Variables de entorno de base de datos en n8n](https://docs.n8n.io/hosting/configuration/environment-variables/database/)
+- [Health endpoints y monitorización de n8n](https://docs.n8n.io/hosting/logging-monitoring/monitoring/)
+- [Documentación de Evolution API](https://doc.evolution-api.com/)
 - [pgvector](https://github.com/pgvector/pgvector)
-- [Redis official image](https://hub.docker.com/_/redis/)
+- [Imagen oficial de Redis](https://hub.docker.com/_/redis/)
