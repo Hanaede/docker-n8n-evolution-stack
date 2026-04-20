@@ -1,0 +1,235 @@
+{
+  "name": "PDF a RAG con OpenAI y PGVector",
+  "nodes": [
+    {
+      "parameters": {
+        "content": "Configura este workflow en 3 pasos:\\n1. Asigna tus credenciales de OpenAI al nodo Embeddings OpenAI.\\n2. Asigna tus credenciales de PostgreSQL al nodo Postgres PGVector Store usando host `postgres`, puerto `5432`, base `rag`.\\n3. Activa el workflow y abre la URL del formulario para subir PDFs.\\n\\nNota: este flujo usa la tabla `n8n_rag_documents` porque tu tabla `rag_embeddings` tiene una columna `source` obligatoria que el nodo PGVector de n8n no rellena.",
+        "height": 336,
+        "width": 477,
+        "color": 7
+      },
+      "id": "f2d67ab7-8f64-4d61-b3cd-3bb4dc1a0d5a",
+      "name": "Notas de Setup",
+      "type": "n8n-nodes-base.stickyNote",
+      "typeVersion": 1,
+      "position": [
+        -760,
+        -120
+      ]
+    },
+    {
+      "parameters": {
+        "formTitle": "Subida de PDF para Base de Conocimiento",
+        "formDescription": "Sube un documento PDF para convertirlo en embeddings y guardarlo en PostgreSQL/pgvector.",
+        "formFields": {
+          "values": [
+            {
+              "fieldLabel": "Documento PDF",
+              "fieldName": "pdf",
+              "fieldType": "file",
+              "multipleFiles": false,
+              "acceptFileTypes": ".pdf",
+              "requiredField": true
+            },
+            {
+              "fieldLabel": "Origen o etiqueta",
+              "fieldName": "source",
+              "fieldType": "text",
+              "placeholder": "web, dossier comercial, manual interno...",
+              "requiredField": false
+            }
+          ]
+        },
+        "responseMode": "onReceived",
+        "options": {
+          "path": "subir-pdf-rag",
+          "buttonLabel": "Subir PDF",
+          "respondWithOptions": {
+            "values": {
+              "respondWith": "text",
+              "formSubmittedText": "PDF recibido. El documento se está procesando para generar embeddings."
+            }
+          }
+        }
+      },
+      "id": "9b8136e3-8c9c-442f-b2c8-faf0648f1d2c",
+      "name": "Formulario de Subida PDF",
+      "type": "n8n-nodes-base.formTrigger",
+      "typeVersion": 2.5,
+      "position": [
+        -500,
+        160
+      ],
+      "webhookId": "subir-pdf-rag"
+    },
+    {
+      "parameters": {
+        "content": "La URL pública del formulario se genera al activar el workflow. Desde aquí entra el PDF y luego el Vector Store toma el binario y crea la tabla si no existe.",
+        "height": 150,
+        "width": 331,
+        "color": 5
+      },
+      "id": "38c8f5fa-c4b4-4d9a-a54b-aece1ac520e5",
+      "name": "Notas de Uso",
+      "type": "n8n-nodes-base.stickyNote",
+      "typeVersion": 1,
+      "position": [
+        -500,
+        -84
+      ]
+    },
+    {
+      "parameters": {
+        "mode": "insert",
+        "tableName": "n8n_rag_documents",
+        "options": {
+          "columnNames": {
+            "values": {
+              "idColumnName": "id",
+              "vectorColumnName": "embedding",
+              "contentColumnName": "text",
+              "metadataColumnName": "metadata"
+            }
+          }
+        }
+      },
+      "id": "e9ab17c8-f712-4fd6-bfe9-22852d4ce8a2",
+      "name": "Postgres PGVector Store",
+      "type": "@n8n/n8n-nodes-langchain.vectorStorePGVector",
+      "typeVersion": 1.2,
+      "position": [
+        40,
+        160
+      ]
+    },
+    {
+      "parameters": {
+        "dataType": "binary",
+        "binaryMode": "specificField",
+        "loader": "pdfLoader",
+        "binaryDataKey": "pdf",
+        "textSplittingMode": "custom",
+        "options": {
+          "splitPages": false,
+          "metadata": {
+            "metadataValues": [
+              {
+                "name": "source",
+                "value": "={{ $json.source || $binary.pdf?.fileName || 'pdf-subido' }}"
+              },
+              {
+                "name": "fileName",
+                "value": "={{ $binary.pdf?.fileName || 'documento.pdf' }}"
+              },
+              {
+                "name": "mimeType",
+                "value": "={{ $binary.pdf?.mimeType || 'application/pdf' }}"
+              },
+              {
+                "name": "uploadedAt",
+                "value": "={{ $now }}"
+              }
+            ]
+          }
+        }
+      },
+      "id": "47f5c772-58aa-4b69-a735-e4e8d0d03cc5",
+      "name": "Default Data Loader",
+      "type": "@n8n/n8n-nodes-langchain.documentDefaultDataLoader",
+      "typeVersion": 1.1,
+      "position": [
+        -160,
+        420
+      ]
+    },
+    {
+      "parameters": {
+        "chunkSize": 1200,
+        "chunkOverlap": 150
+      },
+      "id": "02f935c7-aa8c-4e48-bd9c-0b97ae4a4d16",
+      "name": "Recursive Character Text Splitter",
+      "type": "@n8n/n8n-nodes-langchain.textSplitterRecursiveCharacterTextSplitter",
+      "typeVersion": 1,
+      "position": [
+        -420,
+        420
+      ]
+    },
+    {
+      "parameters": {
+        "model": "text-embedding-3-small",
+        "options": {
+          "dimensions": 1536,
+          "batchSize": 100,
+          "stripNewLines": true
+        }
+      },
+      "id": "1d4abcf0-0949-4c5d-ae0f-b42b6a2786d6",
+      "name": "Embeddings OpenAI",
+      "type": "@n8n/n8n-nodes-langchain.embeddingsOpenAi",
+      "typeVersion": 1.2,
+      "position": [
+        40,
+        420
+      ]
+    }
+  ],
+  "connections": {
+    "Formulario de Subida PDF": {
+      "main": [
+        [
+          {
+            "node": "Postgres PGVector Store",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Default Data Loader": {
+      "ai_document": [
+        [
+          {
+            "node": "Postgres PGVector Store",
+            "type": "ai_document",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Recursive Character Text Splitter": {
+      "ai_textSplitter": [
+        [
+          {
+            "node": "Default Data Loader",
+            "type": "ai_textSplitter",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Embeddings OpenAI": {
+      "ai_embedding": [
+        [
+          {
+            "node": "Postgres PGVector Store",
+            "type": "ai_embedding",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "pinData": {},
+  "settings": {
+    "executionOrder": "v1"
+  },
+  "staticData": null,
+  "meta": {
+    "templateCredsSetupCompleted": false
+  },
+  "active": false,
+  "versionId": "4f8cf41a-4e17-4f65-9870-6baea92db1f0",
+  "tags": []
+}

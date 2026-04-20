@@ -24,6 +24,7 @@ Este proyecto está pensado para `Docker Desktop` tanto en `Windows` como en `ma
 - Volúmenes persistentes de Docker
 - Health checks en todos los servicios
 - Una base inicial para que adaptes tus propios workflows de agente IA
+- Carpeta `workflows/` con workflows listos para importar en n8n
 
 ## Arquitectura del stack
 
@@ -210,6 +211,75 @@ Usa:
 
 - Base URL: `http://evolution-api:8080`
 - Header: `apikey: <AUTHENTICATION_API_KEY>`
+
+## Workflows incluidos
+
+Este repositorio incluye ejemplos reutilizables dentro de la carpeta [`workflows/`](workflows).
+
+### PDF a RAG con OpenAI y PGVector
+
+Archivo:
+
+- [`workflows/pdf-a-rag-openai-pgvector.json`](workflows/pdf-a-rag-openai-pgvector.json)
+
+Este workflow hace lo siguiente:
+
+- recibe un PDF desde un formulario web de n8n
+- extrae el contenido del PDF
+- lo divide en fragmentos
+- genera embeddings con OpenAI
+- guarda los fragmentos y embeddings en PostgreSQL/pgvector
+
+#### Importar el workflow
+
+Desde la raíz del proyecto:
+
+```bash
+docker compose exec -T n8n n8n import:workflow --input=/Users/kike/Documents/proyectos/docker-automatizacion/workflows/pdf-a-rag-openai-pgvector.json
+```
+
+También puedes importarlo manualmente desde la interfaz de n8n con `Import from File`.
+
+#### Configuración necesaria en n8n
+
+Antes de activarlo, asigna estas credenciales:
+
+- `Embeddings OpenAI`
+  - tu API key de OpenAI
+- `Postgres PGVector Store`
+  - Host: `postgres`
+  - Puerto: `5432`
+  - Base de datos: `rag`
+  - Usuario: valor de `POSTGRES_USER`
+  - Contraseña: valor de `POSTGRES_PASSWORD`
+
+#### Cómo usarlo
+
+1. Activa el workflow en n8n.
+2. Abre el nodo `Formulario de Subida PDF`.
+3. Copia la `Production URL`.
+4. Abre esa URL en el navegador.
+5. Sube un PDF.
+
+El workflow creará o reutilizará la tabla `n8n_rag_documents` dentro de la base `rag`.
+
+#### Verificar los datos cargados
+
+Puedes revisar el resultado desde Adminer o con SQL:
+
+```sql
+SELECT id, text, metadata
+FROM n8n_rag_documents
+LIMIT 10;
+```
+
+Para comprobar que los embeddings existen:
+
+```sql
+SELECT id, embedding IS NOT NULL AS tiene_embedding
+FROM n8n_rag_documents
+LIMIT 10;
+```
 
 ## Configuración del webhook de Evolution API
 
