@@ -43,6 +43,16 @@ services:
       retries: 10
       start_period: 10s
 
+  adminer:
+    image: ${ADMINER_IMAGE}
+    container_name: local-adminer
+    restart: unless-stopped
+    depends_on:
+      postgres:
+        condition: service_healthy
+    ports:
+      - "${ADMINER_PORT}:8080"
+
   n8n:
     image: ${N8N_IMAGE}
     container_name: local-n8n

@@ -6,6 +6,7 @@ Un stack local listo para usar y crear agentes de IA por WhatsApp con:
 - `PostgreSQL + pgvector` para RAG y búsqueda vectorial
 - `Redis` para memoria, buffering y caché
 - `Evolution API` para la conectividad con WhatsApp
+- `Adminer` como interfaz visual para PostgreSQL
 
 Este proyecto está pensado para `Docker Desktop` tanto en `Windows` como en `macOS` y se puede levantar con un solo comando.
 
@@ -15,6 +16,7 @@ Este proyecto está pensado para `Docker Desktop` tanto en `Windows` como en `ma
 - `PostgreSQL` con `pgvector` habilitado
 - `Redis` persistente
 - `Evolution API` local conectada a PostgreSQL y Redis
+- `Adminer` para explorar y editar la base de datos desde el navegador
 - Bases de datos separadas para:
   - `n8n`
   - `evolution`
@@ -92,6 +94,7 @@ docker compose ps
 
 - `n8n`: http://localhost:5678
 - `Evolution API`: http://localhost:8080
+- `Adminer`: http://localhost:8081
 - `PostgreSQL`: localhost:5432
 - `Redis`: localhost:6379
 
@@ -116,6 +119,22 @@ http://localhost:8080
 ```
 
 Crea o abre tu instancia de WhatsApp, genera el QR y escanéalo con WhatsApp.
+
+### Adminer
+
+Abre:
+
+```text
+http://localhost:8081
+```
+
+Y usa estos datos para entrar a PostgreSQL:
+
+- Sistema: `PostgreSQL`
+- Servidor: `postgres`
+- Usuario: valor de `POSTGRES_USER`
+- Contraseña: valor de `POSTGRES_PASSWORD`
+- Base de datos: `rag` o la que quieras inspeccionar
 
 ## Bases de datos creadas automáticamente
 
@@ -168,6 +187,17 @@ Si creas una credencial PostgreSQL en n8n para búsqueda vectorial:
 - Base de datos: valor de `RAG_POSTGRES_DB`
 - Usuario: valor de `POSTGRES_USER`
 - Contraseña: valor de `POSTGRES_PASSWORD`
+
+### Adminer para acceso visual
+
+Si quieres explorar o editar la base en tiempo real desde el navegador:
+
+- URL: `http://localhost:8081`
+- Sistema: `PostgreSQL`
+- Servidor: `postgres`
+- Usuario: valor de `POSTGRES_USER`
+- Contraseña: valor de `POSTGRES_PASSWORD`
+- Base de datos recomendada para RAG: valor de `RAG_POSTGRES_DB`
 
 ### Redis para memoria o caché
 
@@ -273,6 +303,14 @@ docker compose exec postgres psql -U postgres -d rag -c "\d+ rag_embeddings"
 
 ```bash
 curl http://localhost:8080
+```
+
+### Comprobar Adminer
+
+Abre:
+
+```text
+http://localhost:8081
 ```
 
 ### Comprobar n8n
