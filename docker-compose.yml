@@ -1,0 +1,140 @@
+services:
+  postgres:
+    image: ${POSTGRES_IMAGE}
+    container_name: local-postgres
+    restart: unless-stopped
+    environment:
+      TZ: ${TZ}
+      POSTGRES_USER: ${POSTGRES_USER}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+      POSTGRES_DB: ${POSTGRES_DB}
+      N8N_POSTGRES_DB: ${N8N_POSTGRES_DB}
+      EVOLUTION_POSTGRES_DB: ${EVOLUTION_POSTGRES_DB}
+      RAG_POSTGRES_DB: ${RAG_POSTGRES_DB}
+    ports:
+      - "${POSTGRES_PORT}:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+      - ./docker/postgres/init:/docker-entrypoint-initdb.d:ro
+    healthcheck:
+      test:
+        [
+          "CMD-SHELL",
+          "pg_isready -U ${POSTGRES_USER} -d ${POSTGRES_DB}"
+        ]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+      start_period: 20s
+
+  redis:
+    image: ${REDIS_IMAGE}
+    container_name: local-redis
+    restart: unless-stopped
+    command: ["redis-server", "--appendonly", "yes", "--save", "60", "1", "--loglevel", "warning"]
+    ports:
+      - "${REDIS_PORT}:6379"
+    volumes:
+      - redis_data:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+      start_period: 10s
+
+  n8n:
+    image: ${N8N_IMAGE}
+    container_name: local-n8n
+    restart: unless-stopped
+    depends_on:
+      postgres:
+        condition: service_healthy
+    environment:
+      TZ: ${TZ}
+      GENERIC_TIMEZONE: ${TZ}
+      N8N_HOST: ${N8N_HOST}
+      N8N_PORT: 5678
+      N8N_PROTOCOL: ${N8N_PROTOCOL}
+      N8N_EDITOR_BASE_URL: ${N8N_EDITOR_BASE_URL}
+      WEBHOOK_URL: ${N8N_WEBHOOK_URL}
+      N8N_ENCRYPTION_KEY: ${N8N_ENCRYPTION_KEY}
+      N8N_ENFORCE_SETTINGS_FILE_PERMISSIONS: "true"
+      N8N_DIAGNOSTICS_ENABLED: ${N8N_DIAGNOSTICS_ENABLED}
+      N8N_PERSONALIZATION_ENABLED: ${N8N_PERSONALIZATION_ENABLED}
+      DB_TYPE: postgresdb
+      DB_POSTGRESDB_HOST: postgres
+      DB_POSTGRESDB_PORT: 5432
+      DB_POSTGRESDB_DATABASE: ${N8N_POSTGRES_DB}
+      DB_POSTGRESDB_USER: ${POSTGRES_USER}
+      DB_POSTGRESDB_PASSWORD: ${POSTGRES_PASSWORD}
+      DB_POSTGRESDB_SCHEMA: public
+    ports:
+      - "${N8N_PORT}:5678"
+    volumes:
+      - n8n_data:/home/node/.n8n
+    healthcheck:
+      test:
+        [
+          "CMD-SHELL",
+          "node -e \"const http=require('http');const req=http.get('http://127.0.0.1:5678/healthz/readiness',res=>process.exit(res.statusCode===200?0:1));req.on('error',()=>process.exit(1));\""
+        ]
+      interval: 15s
+      timeout: 8s
+      retries: 10
+      start_period: 40s
+
+  evolution-api:
+    image: ${EVOLUTION_IMAGE}
+    container_name: local-evolution-api
+    restart: unless-stopped
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    environment:
+      TZ: ${TZ}
+      SERVER_URL: ${EVOLUTION_SERVER_URL}
+      AUTHENTICATION_TYPE: ${EVOLUTION_AUTHENTICATION_TYPE}
+      DEL_INSTANCE: ${EVOLUTION_DEL_INSTANCE}
+      AUTHENTICATION_API_KEY: ${AUTHENTICATION_API_KEY}
+      CONFIG_SESSION_PHONE_CLIENT: ${EVOLUTION_SESSION_PHONE_CLIENT}
+      CONFIG_SESSION_PHONE_NAME: ${EVOLUTION_SESSION_PHONE_NAME}
+      DATABASE_ENABLED: "true"
+      DATABASE_PROVIDER: postgresql
+      DATABASE_CONNECTION_URI: postgresql://${POSTGRES_USER}:${POSTGRES_PASSWORD}@postgres:5432/${EVOLUTION_POSTGRES_DB}
+      DATABASE_CONNECTION_CLIENT_NAME: ${EVOLUTION_DATABASE_CLIENT_NAME}
+      DATABASE_SAVE_DATA_INSTANCE: ${EVOLUTION_DATABASE_SAVE_DATA_INSTANCE}
+      DATABASE_SAVE_DATA_NEW_MESSAGE: ${EVOLUTION_DATABASE_SAVE_DATA_NEW_MESSAGE}
+      DATABASE_SAVE_MESSAGE_UPDATE: ${EVOLUTION_DATABASE_SAVE_MESSAGE_UPDATE}
+      DATABASE_SAVE_DATA_CONTACTS: ${EVOLUTION_DATABASE_SAVE_DATA_CONTACTS}
+      DATABASE_SAVE_DATA_CHATS: ${EVOLUTION_DATABASE_SAVE_DATA_CHATS}
+      DATABASE_SAVE_DATA_LABELS: ${EVOLUTION_DATABASE_SAVE_DATA_LABELS}
+      DATABASE_SAVE_DATA_HISTORIC: ${EVOLUTION_DATABASE_SAVE_DATA_HISTORIC}
+      CACHE_REDIS_ENABLED: "true"
+      CACHE_REDIS_URI: redis://redis:6379/${EVOLUTION_REDIS_DB}
+      CACHE_REDIS_PREFIX_KEY: ${EVOLUTION_REDIS_PREFIX_KEY}
+      CACHE_REDIS_TTL: ${EVOLUTION_REDIS_TTL}
+      CACHE_REDIS_SAVE_INSTANCES: ${EVOLUTION_REDIS_SAVE_INSTANCES}
+      RABBITMQ_ENABLED: "false"
+    ports:
+      - "${EVOLUTION_PORT}:8080"
+    volumes:
+      - evolution_instances:/evolution/instances
+    healthcheck:
+      test:
+        [
+          "CMD-SHELL",
+          "node -e \"const http=require('http');const req=http.get('http://127.0.0.1:8080',res=>process.exit(res.statusCode<500?0:1));req.on('error',()=>process.exit(1));\""
+        ]
+      interval: 15s
+      timeout: 8s
+      retries: 12
+      start_period: 45s
+
+volumes:
+  postgres_data:
+  redis_data:
+  n8n_data:
+  evolution_instances:
