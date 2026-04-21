@@ -3,8 +3,8 @@
   "nodes": [
     {
       "parameters": {
-        "content": "Configura este workflow antes de activarlo:\\n1. Asigna credenciales a `OpenAI Chat Model`, `Embeddings OpenAI` y `Redis Chat Memory`.\\n2. Asigna credenciales PostgreSQL al nodo `RAG Company Knowledge` con host `postgres`, puerto `5432`, base `rag`.\\n3. Edita el nodo `Normalize Evolution Message` para poner tu `evolutionApiKey` real si no quieres gestionarlo por credenciales.\\n4. Configura el nodo `Google Calendar MCP Tool` apuntando a tu servidor MCP real, por ejemplo `http://host.docker.internal:3001/mcp`.\\n5. En Evolution configura el webhook de entrada hacia la URL de producción de este workflow.\\n\\nEste flujo está pensado para mensajes entrantes de WhatsApp, agrupa mensajes recibidos en una ventana de 5 segundos y solo deja continuar a la última ejecución.",
-        "height": 430,
+        "content": "Configura este workflow antes de activarlo:\n\n1. Asigna credenciales a `OpenAI Chat Model`, `Embeddings OpenAI` y `Redis Chat Memory`.\n\n2. Asigna credenciales PostgreSQL al nodo `RAG Company Knowledge` con host `postgres`, puerto `5432`, base `rag`.\n\n3. Edita el nodo `Normalize Evolution Message` para poner tu `evolutionApiKey` real si no quieres gestionarlo por credenciales.\n\n4. Configura el nodo `Google Calendar MCP Tool` apuntando a tu servidor MCP.\n\n5. En Evolution configura el webhook de entrada hacia la URL de producción de este workflow.\n\nEste flujo está pensado para mensajes entrantes de WhatsApp, agrupa mensajes recibidos en una ventana de 5 segundos y solo deja continuar a la última ejecución.",
+        "height": 350,
         "width": 493,
         "color": 7
       },
@@ -13,13 +13,13 @@
       "type": "n8n-nodes-base.stickyNote",
       "typeVersion": 1,
       "position": [
-        -912,
+        32,
         32
       ]
     },
     {
       "parameters": {
-        "content": "El agente usa dos capas de contexto:\\n- Redis Buffer: agrupa varios mensajes seguidos en 5 segundos\\n- Redis Chat Memory: mantiene memoria conversacional entre turnos\\n\\nEl RAG va como herramienta de consulta y Google Calendar entra por MCP Tool para crear, consultar, modificar y cancelar citas.",
+        "content": "El agente usa dos capas de contexto:\n\n- Redis Buffer: agrupa varios mensajes seguidos en 5 segundos\n- Redis Chat Memory: mantiene memoria conversacional entre turnos\n\nEl RAG va como herramienta de consulta y Google Calendar entra por MCP Tool para crear, consultar, modificar y cancelar citas.",
         "height": 260,
         "width": 401,
         "color": 5
@@ -29,8 +29,8 @@
       "type": "n8n-nodes-base.stickyNote",
       "typeVersion": 1,
       "position": [
-        304,
-        32
+        1664,
+        128
       ]
     },
     {
@@ -80,7 +80,13 @@
       "position": [
         -240,
         448
-      ]
+      ],
+      "credentials": {
+        "redis": {
+          "id": "ojrnwrI50piCjytq",
+          "name": "Redis account"
+        }
+      }
     },
     {
       "parameters": {
@@ -109,7 +115,13 @@
       "position": [
         208,
         448
-      ]
+      ],
+      "credentials": {
+        "redis": {
+          "id": "ojrnwrI50piCjytq",
+          "name": "Redis account"
+        }
+      }
     },
     {
       "parameters": {
@@ -141,7 +153,13 @@
       "position": [
         656,
         448
-      ]
+      ],
+      "credentials": {
+        "redis": {
+          "id": "ojrnwrI50piCjytq",
+          "name": "Redis account"
+        }
+      }
     },
     {
       "parameters": {
@@ -187,7 +205,13 @@
       "position": [
         1296,
         656
-      ]
+      ],
+      "credentials": {
+        "openAiApi": {
+          "id": "S1NjJm9gQuRwaRS7",
+          "name": "OpenAI account"
+        }
+      }
     },
     {
       "parameters": {
@@ -200,7 +224,13 @@
       "position": [
         1504,
         656
-      ]
+      ],
+      "credentials": {
+        "redis": {
+          "id": "ojrnwrI50piCjytq",
+          "name": "Redis account"
+        }
+      }
     },
     {
       "parameters": {
@@ -223,7 +253,13 @@
       "position": [
         1712,
         656
-      ]
+      ],
+      "credentials": {
+        "postgres": {
+          "id": "5QFG08UC09lIWpUQ",
+          "name": "Postgres account"
+        }
+      }
     },
     {
       "parameters": {
@@ -240,7 +276,13 @@
       "position": [
         1712,
         832
-      ]
+      ],
+      "credentials": {
+        "openAiApi": {
+          "id": "S1NjJm9gQuRwaRS7",
+          "name": "OpenAI account"
+        }
+      }
     },
     {
       "parameters": {
@@ -254,8 +296,8 @@
       "type": "@n8n/n8n-nodes-langchain.mcpClientTool",
       "typeVersion": 1.2,
       "position": [
-        2304,
-        688
+        2032,
+        640
       ]
     },
     {
@@ -310,8 +352,8 @@
       "type": "@n8n/n8n-nodes-langchain.mcpTrigger",
       "typeVersion": 2,
       "position": [
-        2592,
-        -48
+        2704,
+        192
       ],
       "id": "b85e7951-3b5e-4701-aa1b-88cc3caefbf6",
       "name": "MCP Server Trigger",
@@ -331,8 +373,8 @@
       "type": "n8n-nodes-base.googleCalendarTool",
       "typeVersion": 1.3,
       "position": [
-        2304,
-        192
+        2416,
+        432
       ],
       "id": "27353670-0486-49ed-8e08-9f95770a55b6",
       "name": "Create an event in Google Calendar"
@@ -350,8 +392,8 @@
       "type": "n8n-nodes-base.googleCalendarTool",
       "typeVersion": 1.3,
       "position": [
-        2512,
-        192
+        2624,
+        432
       ],
       "id": "f21797fb-09ec-4c43-bda5-cad1c4b4aa72",
       "name": "Get many events in Google Calendar"
@@ -369,8 +411,8 @@
       "type": "n8n-nodes-base.googleCalendarTool",
       "typeVersion": 1.3,
       "position": [
-        2736,
-        208
+        2848,
+        448
       ],
       "id": "842a999e-4f3f-4b6f-b277-4233e37a2bae",
       "name": "Delete an event in Google Calendar"
@@ -388,8 +430,8 @@
       "type": "n8n-nodes-base.googleCalendarTool",
       "typeVersion": 1.3,
       "position": [
-        3008,
-        192
+        3120,
+        432
       ],
       "id": "87beaea6-7ef5-4d43-b4cb-8bc540b6201f",
       "name": "Update an event in Google Calendar"
@@ -612,7 +654,7 @@
     "executionOrder": "v1",
     "binaryMode": "separate"
   },
-  "versionId": "8e1582e0-80d0-42b4-98d4-74da75d12ca1",
+  "versionId": "2ed592cf-2fae-43a2-a01d-c3232fc90af0",
   "meta": {
     "instanceId": "d34dd12a0490352c9f09ebb59e0cea47edc60b2f37096b67b423756066a737d5"
   },
