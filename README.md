@@ -224,13 +224,6 @@ Este workflow hace lo siguiente:
 - genera embeddings con OpenAI
 - guarda los fragmentos y embeddings en PostgreSQL/pgvector
 
-#### Importar el workflow
-
-Desde la raíz del proyecto:
-
-```bash
-docker compose exec -T n8n n8n import:workflow --input=/Users/kike/Documents/proyectos/docker-automatizacion/workflows/pdf-a-rag-openai-pgvector.json
-```
 
 También puedes importarlo manualmente desde la interfaz de n8n con `Import from File`.
 
