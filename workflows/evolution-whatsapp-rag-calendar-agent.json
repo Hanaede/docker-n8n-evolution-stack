@@ -565,17 +565,6 @@
         ]
       ]
     },
-    "Google Calendar MCP Tool": {
-      "ai_tool": [
-        [
-          {
-            "node": "AI Agent",
-            "type": "ai_tool",
-            "index": 0
-          }
-        ]
-      ]
-    },
     "AI Agent": {
       "main": [
         [
