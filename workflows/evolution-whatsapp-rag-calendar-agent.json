@@ -8,13 +8,13 @@
         "width": 493,
         "color": 7
       },
-      "id": "dcefb007-8d06-4b64-abbe-124861839907",
+      "id": "d0848047-9bc5-432f-aec5-8b110babb17e",
       "name": "Notas de Setup",
       "type": "n8n-nodes-base.stickyNote",
       "typeVersion": 1,
       "position": [
-        32,
-        32
+        560,
+        1136
       ]
     },
     {
@@ -24,13 +24,13 @@
         "width": 401,
         "color": 5
       },
-      "id": "27326708-c570-43fa-8ea8-f3b44726194c",
+      "id": "c834fd1c-60d2-4a72-a908-803aec86c047",
       "name": "Notas de Arquitectura",
       "type": "n8n-nodes-base.stickyNote",
       "typeVersion": 1,
       "position": [
-        1664,
-        128
+        2192,
+        1232
       ]
     },
     {
@@ -41,13 +41,13 @@
           "responseData": "ok"
         }
       },
-      "id": "0b9419ab-0d5f-4560-af22-82ff315a9779",
+      "id": "1008f18e-5b23-417f-9f17-4a3fe25d83ea",
       "name": "Evolution Incoming Webhook",
       "type": "n8n-nodes-base.webhook",
       "typeVersion": 2,
       "position": [
-        -704,
-        448
+        -176,
+        1552
       ],
       "webhookId": "evolution-whatsapp-agent"
     },
@@ -56,13 +56,13 @@
         "mode": "runOnceForEachItem",
         "jsCode": "const body = $json.body ?? $json;\nconst data = body.data ?? body;\nconst key = data.key ?? {};\nconst message = data.message ?? {};\nconst fromMe = key.fromMe ?? data.fromMe ?? false;\nconst remoteJid = key.remoteJid ?? data.remoteJid ?? data.from ?? body.sender ?? '';\nconst text = message.conversation ?? message.extendedTextMessage?.text ?? message.imageMessage?.caption ?? message.videoMessage?.caption ?? data.body ?? body.body ?? '';\nif (fromMe || !remoteJid || !text) {\n  return null;\n}\nconst messageId = key.id ?? data.id ?? `${Date.now()}`;\nconst instanceName = body.instance ?? body.instanceName ?? data.instance ?? 'CHANGE_ME';\nconst sessionId = remoteJid.replace(/[^a-zA-Z0-9:_-]/g, '_');\nconst pushName = data.pushName ?? body.pushName ?? '';\nconst webhookItem = $('Evolution Incoming Webhook').first().json;\nconst evolutionApiKey = webhookItem.body?.apikey ?? webhookItem.apikey ?? body.apikey ?? data.apikey ?? '';\nreturn {\n  json: {\n    rawBody: body,\n    remoteJid,\n    pushName,\n    text,\n    chatInput: text,\n    messageId,\n    instanceName,\n    sessionId,\n    memorySessionId: `wa-memory:${sessionId}`,\n    bufferKey: `wa-buffer:${sessionId}`,\n    evolutionBaseUrl: 'http://evolution-api:8080',\n    evolutionApiKey,\n    googleCalendarMcpUrl: 'http://host.docker.internal:3001/mcp'\n  }\n};"
       },
-      "id": "ce657a26-6514-418c-9928-6423d09cfdef",
+      "id": "26ee7a19-6f09-47e6-a73a-10bc6f147f4c",
       "name": "Normalize Evolution Message",
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
       "position": [
-        -464,
-        448
+        64,
+        1552
       ]
     },
     {
@@ -73,17 +73,17 @@
         "keyType": "string",
         "options": {}
       },
-      "id": "df42414e-3576-4de7-b805-9849ae0a99cb",
+      "id": "afc4cc3b-d4ef-4dc3-9cac-8ace08273b6e",
       "name": "Get Buffer Snapshot",
       "type": "n8n-nodes-base.redis",
       "typeVersion": 1,
       "position": [
-        -240,
-        448
+        288,
+        1552
       ],
       "credentials": {
         "redis": {
-          "id": "ojrnwrI50piCjytq",
+          "id": "Myw5B5gIEfw2xhVS",
           "name": "Redis account"
         }
       }
@@ -93,13 +93,13 @@
         "mode": "runOnceForEachItem",
         "jsCode": "const norm = $('Normalize Evolution Message').first().json;\nlet previous = null;\ntry {\n  previous = $json.bufferSnapshot ? JSON.parse($json.bufferSnapshot) : null;\n} catch (error) {\n  previous = null;\n}\nconst now = Date.now();\nconst withinWindow = previous && Number(previous.updatedAt || 0) >= now - 5000;\nconst mergedText = [withinWindow ? previous.text : '', norm.text].filter(Boolean).join('\\n');\nconst debounceToken = `${norm.messageId}:${now}`;\nconst payload = {\n  token: debounceToken,\n  text: mergedText,\n  updatedAt: now,\n  remoteJid: norm.remoteJid,\n  pushName: norm.pushName,\n  instanceName: norm.instanceName\n};\nreturn {\n  json: {\n    ...norm,\n    chatInput: mergedText,\n    debounceToken,\n    bufferPayload: JSON.stringify(payload)\n  }\n};"
       },
-      "id": "074193fd-3153-4ccb-a8ef-e0f68d3addc5",
+      "id": "d314f4af-c9df-4dd9-8670-531b016b24cd",
       "name": "Merge 5s Buffer",
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
       "position": [
-        -16,
-        448
+        512,
+        1552
       ]
     },
     {
@@ -108,17 +108,17 @@
         "key": "={{ $json.bufferKey }}",
         "value": "={{ $json.bufferPayload }}"
       },
-      "id": "55975fb1-2a24-44e8-962c-ce8b3fdb7c0a",
+      "id": "f660c91e-59fa-4257-9da8-108076ccc54d",
       "name": "Set Buffer Snapshot",
       "type": "n8n-nodes-base.redis",
       "typeVersion": 1,
       "position": [
-        208,
-        448
+        736,
+        1552
       ],
       "credentials": {
         "redis": {
-          "id": "ojrnwrI50piCjytq",
+          "id": "Myw5B5gIEfw2xhVS",
           "name": "Redis account"
         }
       }
@@ -128,13 +128,13 @@
         "amount": 5,
         "unit": "seconds"
       },
-      "id": "dd0feec7-57a2-41fc-819d-646e1a324d5f",
+      "id": "3e08bbdf-1459-4935-815b-4b9d77dbadc6",
       "name": "Wait 5 Seconds",
       "type": "n8n-nodes-base.wait",
       "typeVersion": 1,
       "position": [
-        432,
-        448
+        960,
+        1552
       ],
       "webhookId": "d11c3cec-d378-4d28-8890-bea56e7d5eff"
     },
@@ -146,17 +146,17 @@
         "keyType": "string",
         "options": {}
       },
-      "id": "49d2dc4f-1eb5-4643-be6a-73c64a6a1d39",
+      "id": "7d2d2431-13cf-4a92-aba4-12039889879d",
       "name": "Get Latest Buffer",
       "type": "n8n-nodes-base.redis",
       "typeVersion": 1,
       "position": [
-        656,
-        448
+        1184,
+        1552
       ],
       "credentials": {
         "redis": {
-          "id": "ojrnwrI50piCjytq",
+          "id": "Myw5B5gIEfw2xhVS",
           "name": "Redis account"
         }
       }
@@ -166,13 +166,13 @@
         "mode": "runOnceForEachItem",
         "jsCode": "const prev = $('Merge 5s Buffer').first().json;\nlet latest = null;\ntry {\n  latest = $json.latestBuffer ? JSON.parse($json.latestBuffer) : null;\n} catch (error) {\n  latest = null;\n}\nif (!latest || latest.token !== prev.debounceToken) {\n  return null;\n}\nreturn {\n  json: {\n    ...prev,\n    chatInput: latest.text,\n    groupedMessageText: latest.text\n  }\n};"
       },
-      "id": "42da45e3-c487-4476-9100-e53e0c082ea3",
+      "id": "0d6b27fc-ef47-49f7-bd1e-e3dd34f045f9",
       "name": "Only Latest Execution Continues",
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
       "position": [
-        864,
-        448
+        1392,
+        1552
       ]
     },
     {
@@ -185,30 +185,30 @@
           "enableStreaming": false
         }
       },
-      "id": "8acef72e-fb75-4315-b855-a5de676f3ca3",
+      "id": "92da8783-4e8c-413b-b85e-045eb1d8f8bc",
       "name": "AI Agent",
       "type": "@n8n/n8n-nodes-langchain.agent",
       "typeVersion": 3.1,
       "position": [
-        1472,
-        448
+        2000,
+        1552
       ]
     },
     {
       "parameters": {
         "options": {}
       },
-      "id": "3712b609-aeb7-49c9-a855-6edb2362fa9b",
+      "id": "01a4a367-c237-4698-8209-624c6d6be5f9",
       "name": "OpenAI Chat Model",
       "type": "@n8n/n8n-nodes-langchain.lmChatOpenAi",
       "typeVersion": 1.1,
       "position": [
-        1296,
-        656
+        1824,
+        1760
       ],
       "credentials": {
         "openAiApi": {
-          "id": "S1NjJm9gQuRwaRS7",
+          "id": "lZ9vSvzjqtdbIJ3O",
           "name": "OpenAI account"
         }
       }
@@ -217,13 +217,13 @@
       "parameters": {
         "contextWindowLength": 20
       },
-      "id": "45f9b0de-ee87-4722-9892-50b5992ffee4",
+      "id": "2e2c0dba-7960-40c7-bc0a-be9439f477ff",
       "name": "Simple Memory",
       "type": "@n8n/n8n-nodes-langchain.memoryBufferWindow",
       "typeVersion": 1.3,
       "position": [
-        1504,
-        656
+        2032,
+        1760
       ]
     },
     {
@@ -240,17 +240,17 @@
           }
         }
       },
-      "id": "41f18d6f-166a-44df-9535-c08f217f416a",
+      "id": "07058ce0-4ad5-461e-905c-05c8492985bd",
       "name": "RAG Company Knowledge",
       "type": "@n8n/n8n-nodes-langchain.vectorStorePGVector",
       "typeVersion": 1.2,
       "position": [
-        1712,
-        656
+        3136,
+        1920
       ],
       "credentials": {
         "postgres": {
-          "id": "5QFG08UC09lIWpUQ",
+          "id": "lcojtFySOwYBnRM4",
           "name": "Postgres account"
         }
       }
@@ -263,17 +263,17 @@
           "stripNewLines": true
         }
       },
-      "id": "aa007074-a901-49e0-83e2-22c560dc92a5",
+      "id": "8a6baaf4-886d-4cc4-a3bb-7218b5e733d7",
       "name": "Embeddings OpenAI",
       "type": "@n8n/n8n-nodes-langchain.embeddingsOpenAi",
       "typeVersion": 1.2,
       "position": [
-        1712,
-        832
+        3136,
+        2096
       ],
       "credentials": {
         "openAiApi": {
-          "id": "S1NjJm9gQuRwaRS7",
+          "id": "lZ9vSvzjqtdbIJ3O",
           "name": "OpenAI account"
         }
       }
@@ -285,13 +285,13 @@
           "timeout": 60000
         }
       },
-      "id": "0094ebab-f757-422f-9538-3a7a19d68457",
+      "id": "808b6e96-fa9d-4864-a700-7e200c9f29f8",
       "name": "MCP Tool",
       "type": "@n8n/n8n-nodes-langchain.mcpClientTool",
       "typeVersion": 1.2,
       "position": [
-        2032,
-        640
+        2560,
+        1744
       ]
     },
     {
@@ -299,13 +299,13 @@
         "mode": "runOnceForEachItem",
         "jsCode": "const norm = $('Normalize Evolution Message').first().json;\nconst responseText = $json.output ?? $json.response ?? 'No he podido procesar tu solicitud ahora mismo.';\nconst targetNumber = (norm.remoteJid || '').replace(/@s\\.whatsapp\\.net$/, '').replace(/@g\\.us$/, '');\nreturn {\n  json: {\n    ...$json,\n    responseText,\n    targetNumber,\n    remoteJid: norm.remoteJid,\n    evolutionBaseUrl: norm.evolutionBaseUrl,\n    evolutionApiKey: norm.evolutionApiKey,\n    instanceName: norm.instanceName,\n    evolutionSendUrl: `${norm.evolutionBaseUrl}/message/sendText/${norm.instanceName}`\n  }\n};"
       },
-      "id": "e4656dd7-327f-427a-9fd6-cba276765146",
+      "id": "28751de2-ce7f-4c75-840a-f17f11a1e169",
       "name": "Prepare WhatsApp Reply",
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
       "position": [
-        1840,
-        448
+        2368,
+        1552
       ]
     },
     {
@@ -330,13 +330,13 @@
         "jsonBody": "={{ { number: $json.targetNumber, text: $json.responseText } }}",
         "options": {}
       },
-      "id": "1643e393-9631-4394-b8c9-5d471cd62db3",
+      "id": "534c9af8-932e-4bd1-b247-425d17d32938",
       "name": "Send WhatsApp Reply via Evolution",
       "type": "n8n-nodes-base.httpRequest",
       "typeVersion": 4.2,
       "position": [
-        2096,
-        448
+        2624,
+        1552
       ]
     },
     {
@@ -346,10 +346,10 @@
       "type": "@n8n/n8n-nodes-langchain.mcpTrigger",
       "typeVersion": 2,
       "position": [
-        2704,
-        192
+        3232,
+        1296
       ],
-      "id": "b85e7951-3b5e-4701-aa1b-88cc3caefbf6",
+      "id": "6e6502d6-28e8-4f04-9b4c-0bd93de5a2fb",
       "name": "MCP Server Trigger",
       "webhookId": "30816c2a-30c6-4975-80ca-33de4443c96b"
     },
@@ -357,78 +357,115 @@
       "parameters": {
         "calendar": {
           "__rl": true,
+          "value": "26f8ac8bb06e5c43ad565a4151d74700a8e5e237978ccbf3738ca3578db87f76@group.calendar.google.com",
           "mode": "list",
-          "value": ""
+          "cachedResultName": "prueba clase"
         },
         "start": "={{ /*n8n-auto-generated-fromAI-override*/ $fromAI('Start', ``, 'string') }}",
         "end": "={{ /*n8n-auto-generated-fromAI-override*/ $fromAI('End', ``, 'string') }}",
-        "additionalFields": {}
+        "additionalFields": {
+          "attendees": [],
+          "summary": "={{ /*n8n-auto-generated-fromAI-override*/ $fromAI('Summary', ``, 'string') }}"
+        }
       },
       "type": "n8n-nodes-base.googleCalendarTool",
       "typeVersion": 1.3,
       "position": [
-        2416,
-        432
+        2944,
+        1536
       ],
-      "id": "27353670-0486-49ed-8e08-9f95770a55b6",
-      "name": "Create an event in Google Calendar"
+      "id": "578e5572-6ad4-49e9-bf14-ddd2d171ae12",
+      "name": "Create an event in Google Calendar",
+      "credentials": {
+        "googleCalendarOAuth2Api": {
+          "id": "lfPk0D1Hd7rcFBZt",
+          "name": "Google Calendar account"
+        }
+      }
     },
     {
       "parameters": {
         "operation": "getAll",
         "calendar": {
           "__rl": true,
+          "value": "26f8ac8bb06e5c43ad565a4151d74700a8e5e237978ccbf3738ca3578db87f76@group.calendar.google.com",
           "mode": "list",
-          "value": ""
+          "cachedResultName": "prueba clase"
         },
         "options": {}
       },
       "type": "n8n-nodes-base.googleCalendarTool",
       "typeVersion": 1.3,
       "position": [
-        2624,
-        432
+        3152,
+        1536
       ],
-      "id": "f21797fb-09ec-4c43-bda5-cad1c4b4aa72",
-      "name": "Get many events in Google Calendar"
+      "id": "b03cf188-d419-4738-8e5e-ddfed31fae72",
+      "name": "Get many events in Google Calendar",
+      "credentials": {
+        "googleCalendarOAuth2Api": {
+          "id": "lfPk0D1Hd7rcFBZt",
+          "name": "Google Calendar account"
+        }
+      }
     },
     {
       "parameters": {
         "operation": "delete",
         "calendar": {
           "__rl": true,
+          "value": "26f8ac8bb06e5c43ad565a4151d74700a8e5e237978ccbf3738ca3578db87f76@group.calendar.google.com",
           "mode": "list",
-          "value": ""
+          "cachedResultName": "prueba clase"
         },
+        "eventId": "={{ /*n8n-auto-generated-fromAI-override*/ $fromAI('Event_ID', ``, 'string') }}",
         "options": {}
       },
       "type": "n8n-nodes-base.googleCalendarTool",
       "typeVersion": 1.3,
       "position": [
-        2848,
-        448
+        3376,
+        1552
       ],
-      "id": "842a999e-4f3f-4b6f-b277-4233e37a2bae",
-      "name": "Delete an event in Google Calendar"
+      "id": "d924072d-8bc4-497e-999a-c2a87e0b1ac9",
+      "name": "Delete an event in Google Calendar",
+      "credentials": {
+        "googleCalendarOAuth2Api": {
+          "id": "lfPk0D1Hd7rcFBZt",
+          "name": "Google Calendar account"
+        }
+      }
     },
     {
       "parameters": {
         "operation": "update",
         "calendar": {
           "__rl": true,
+          "value": "26f8ac8bb06e5c43ad565a4151d74700a8e5e237978ccbf3738ca3578db87f76@group.calendar.google.com",
           "mode": "list",
-          "value": ""
+          "cachedResultName": "prueba clase"
         },
-        "updateFields": {}
+        "eventId": "={{ /*n8n-auto-generated-fromAI-override*/ $fromAI('Event_ID', ``, 'string') }}",
+        "updateFields": {
+          "end": "={{ /*n8n-auto-generated-fromAI-override*/ $fromAI('End', ``, 'string') }}",
+          "start": "={{ /*n8n-auto-generated-fromAI-override*/ $fromAI('Start', ``, 'string') }}",
+          "summary": "={{ /*n8n-auto-generated-fromAI-override*/ $fromAI('Summary', ``, 'string') }}"
+        }
       },
       "type": "n8n-nodes-base.googleCalendarTool",
       "typeVersion": 1.3,
       "position": [
-        3120,
-        432
+        3648,
+        1536
       ],
-      "id": "87beaea6-7ef5-4d43-b4cb-8bc540b6201f",
-      "name": "Update an event in Google Calendar"
+      "id": "8e10d98b-42bb-4a34-8e02-8213dc900a96",
+      "name": "Update an event in Google Calendar",
+      "credentials": {
+        "googleCalendarOAuth2Api": {
+          "id": "lfPk0D1Hd7rcFBZt",
+          "name": "Google Calendar account"
+        }
+      }
     }
   ],
   "pinData": {},
@@ -643,15 +680,16 @@
       ]
     }
   },
-  "active": false,
+  "active": true,
   "settings": {
     "executionOrder": "v1",
     "binaryMode": "separate"
   },
-  "versionId": "2ed592cf-2fae-43a2-a01d-c3232fc90af0",
+  "versionId": "35263c73-aa1f-4936-9131-7c3b4d4584de",
   "meta": {
-    "instanceId": "d34dd12a0490352c9f09ebb59e0cea47edc60b2f37096b67b423756066a737d5"
+    "templateCredsSetupCompleted": true,
+    "instanceId": "ffd72b706b1c72d2b3708c3551df9b9d653765952a7acf3534136c2fc40441a1"
   },
-  "id": "v7lEPAoKVm3iAhR9",
+  "id": "YK81bO6YxIZIZWMf",
   "tags": []
 }
