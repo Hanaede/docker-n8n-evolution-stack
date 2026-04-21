@@ -218,10 +218,6 @@ Este repositorio incluye ejemplos reutilizables dentro de la carpeta [`workflows
 
 ### PDF a RAG con OpenAI y PGVector
 
-Archivo:
-
-- [`workflows/pdf-a-rag-openai-pgvector.json`](workflows/pdf-a-rag-openai-pgvector.json)
-
 Este workflow hace lo siguiente:
 
 - recibe un PDF desde un formulario web de n8n
@@ -283,9 +279,6 @@ LIMIT 10;
 
 ### Evolution WhatsApp RAG Calendar Agent
 
-Archivo:
-
-- [`workflows/evolution-whatsapp-rag-calendar-agent.json`](workflows/evolution-whatsapp-rag-calendar-agent.json)
 
 Este workflow está orientado a atención por WhatsApp con IA y hace lo siguiente:
 
