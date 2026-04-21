@@ -212,9 +212,7 @@ Usa:
 - Base URL: `http://evolution-api:8080`
 - Header: `apikey: <AUTHENTICATION_API_KEY>`
 
-## Workflows incluidos
-
-Este repositorio incluye ejemplos reutilizables dentro de la carpeta [`workflows/`](workflows).
+## Workflows 
 
 ### PDF a RAG con OpenAI y PGVector
 
