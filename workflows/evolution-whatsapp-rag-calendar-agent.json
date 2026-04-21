@@ -3,7 +3,7 @@
   "nodes": [
     {
       "parameters": {
-        "content": "Configura este workflow antes de activarlo:\n\n1. Asigna credenciales a `OpenAI Chat Model` y `Embeddings OpenAI`.\n\n2. En `OpenAI Chat Model` selecciona un modelo con function calling (recomendado: `gpt-4o-mini`). Modelos sin tool calling provocarán bucles y error de max iterations.\n\n3. Asigna credenciales PostgreSQL al nodo `RAG Company Knowledge` con host `postgres`, puerto `5432`, base `rag`.\n\n4. Edita el nodo `Normalize Evolution Message` para poner tu `evolutionApiKey` real y el `instanceName` de tu instancia de Evolution.\n\n5. Configura el nodo `Google Calendar MCP Tool` apuntando a tu servidor MCP (opcional, viene desactivado).\n\n6. En Evolution configura el webhook de entrada hacia la URL de producción de este workflow.\n\nEste flujo está pensado para mensajes entrantes de WhatsApp, agrupa mensajes recibidos en una ventana de 5 segundos y solo deja continuar a la última ejecución.",
+        "content": "Configura este workflow antes de activarlo:\n\n1. Asigna credenciales a `OpenAI Chat Model` y `Embeddings OpenAI`.\n\n2. En `OpenAI Chat Model` selecciona un modelo con function calling (recomendado: `gpt-4o-mini`). Modelos sin tool calling provocarán bucles y error de max iterations.\n\n3. Asigna credenciales PostgreSQL al nodo `RAG Company Knowledge` con host `postgres`, puerto `5432`, base `rag`.\n\n4. Edita el nodo `Normalize Evolution Message` para poner tu `evolutionApiKey` real y el `instanceName` de tu instancia de Evolution.\n\n5. El nodo `MCP Tool` conecta al `MCP Server Trigger` del propio workflow. Todas las herramientas del agente (`RAG Company Knowledge` y los nodos de Google Calendar) se enrutan por ahí: actívalos cuando los necesites y conéctalos al `MCP Server Trigger` con `ai_tool`.\n\n6. En Evolution configura el webhook de entrada hacia la URL de producción de este workflow.\n\nEste flujo está pensado para mensajes entrantes de WhatsApp, agrupa mensajes recibidos en una ventana de 5 segundos y solo deja continuar a la última ejecución.",
         "height": 350,
         "width": 493,
         "color": 7
@@ -178,7 +178,7 @@
     {
       "parameters": {
         "options": {
-          "systemMessage": "=Eres un asistente de WhatsApp para una empresa. Responde en el idioma del usuario, breve y en texto plano.\\n\\nHERRAMIENTAS DISPONIBLES Y CUÁNDO USAR CADA UNA:\\n\\n1. `company_knowledge` — Base de conocimiento de la empresa.\\n   Úsala SIEMPRE para preguntas sobre: nombre, sector, servicios, productos, precios, condiciones, procesos, políticas, horarios, contacto o cualquier dato del negocio.\\n   Ejemplos: \\\"¿cómo se llama la empresa?\\\", \\\"¿qué servicios ofrecéis?\\\", \\\"¿cuánto cuesta X?\\\", \\\"¿cuál es vuestro horario?\\\", \\\"¿a qué os dedicáis?\\\"\\n\\n2. Google Calendar (MCP) — Gestión de citas y eventos.\\n   Úsalo SOLO para: reservar una cita, consultar disponibilidad en una fecha/hora, mover, cancelar o listar citas.\\n   Ejemplos: \\\"quiero una cita el martes a las 10\\\", \\\"¿hay hueco el jueves?\\\", \\\"cancela mi reserva\\\", \\\"mueve mi cita\\\"\\n\\nREGLAS ESTRICTAS:\\n- NUNCA uses Google Calendar para preguntas sobre la empresa o sus servicios. Esas SIEMPRE van a `company_knowledge`.\\n- NUNCA uses `company_knowledge` para gestionar citas. Esas SIEMPRE van a Google Calendar.\\n- Criterio de decisión: si el mensaje menciona una fecha, hora, día de la semana, o verbos como reservar/agendar/cancelar/mover → Google Calendar. Si pregunta por información → `company_knowledge`.\\n- Si `company_knowledge` no devuelve info sobre el tema consultado, dilo explícitamente en la respuesta.\\n- No inventes datos ni respondas con conocimiento general.\\n\\nNunca menciones al usuario las herramientas internas (company_knowledge, MCP, Redis, RAG).",
+          "systemMessage": "=Eres un asistente de WhatsApp para una empresa. Responde en el idioma del usuario, breve y en texto plano.\\n\\nTienes acceso a un conjunto de herramientas expuestas vía MCP. Entre ellas:\\n- Consulta de la base de conocimiento de la empresa: nombre, sector, servicios, productos, precios, condiciones, procesos, políticas, horarios, contacto y cualquier dato del negocio.\\n- Gestión de citas en Google Calendar: reservar, consultar disponibilidad, mover, cancelar o listar citas.\\n\\nREGLAS:\\n- Para CUALQUIER pregunta sobre la empresa o sus servicios: llama SIEMPRE a la herramienta de consulta de conocimiento. No respondas de memoria ni con conocimiento general.\\n- Para citas (cuando el usuario mencione una fecha, hora, día de la semana, o verbos como reservar/agendar/cancelar/mover): usa la herramienta de calendario.\\n- Si la herramienta de consulta no devuelve información sobre el tema pedido, dilo explícitamente en la respuesta.\\n- No inventes datos sobre la empresa ni sobre disponibilidad.\\n- Si falta información para reservar una cita, pide solo los datos mínimos necesarios (fecha, hora, nombre, motivo).\\n\\nNunca menciones al usuario las herramientas internas (MCP, Redis, RAG).",
           "maxIterations": 15,
           "returnIntermediateSteps": false,
           "passthroughBinaryImages": true,
@@ -286,7 +286,7 @@
         }
       },
       "id": "0094ebab-f757-422f-9538-3a7a19d68457",
-      "name": "Google Calendar MCP Tool",
+      "name": "MCP Tool",
       "type": "@n8n/n8n-nodes-langchain.mcpClientTool",
       "typeVersion": 1.2,
       "position": [
@@ -547,7 +547,7 @@
       "ai_tool": [
         [
           {
-            "node": "AI Agent",
+            "node": "MCP Server Trigger",
             "type": "ai_tool",
             "index": 0
           }
@@ -565,7 +565,7 @@
         ]
       ]
     },
-    "Google Calendar MCP Tool": {
+    "MCP Tool": {
       "ai_tool": [
         [
           {
