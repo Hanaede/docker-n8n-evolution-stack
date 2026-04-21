@@ -164,7 +164,7 @@
     {
       "parameters": {
         "mode": "runOnceForEachItem",
-        "jsCode": "const prev = $('Merge 5s Buffer').first().json;\nlet latest = null;\ntry {\n  latest = $json.latestBuffer ? JSON.parse($json.latestBuffer) : null;\n} catch (error) {\n  latest = null;\n}\nif (!latest || latest.token !== prev.debounceToken) {\n  return [];\n}\nreturn {\n  json: {\n    ...prev,\n    chatInput: latest.text,\n    groupedMessageText: latest.text\n  }\n};"
+        "jsCode": "const prev = $('Merge 5s Buffer').first().json;\nlet latest = null;\ntry {\n  latest = $json.latestBuffer ? JSON.parse($json.latestBuffer) : null;\n} catch (error) {\n  latest = null;\n}\nif (!latest || latest.token !== prev.debounceToken) {\n  return null;\n}\nreturn {\n  json: {\n    ...prev,\n    chatInput: latest.text,\n    groupedMessageText: latest.text\n  }\n};"
       },
       "id": "42da45e3-c487-4476-9100-e53e0c082ea3",
       "name": "Only Latest Execution Continues",
