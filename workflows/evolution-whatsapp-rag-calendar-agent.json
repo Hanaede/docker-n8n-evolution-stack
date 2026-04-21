@@ -3,7 +3,7 @@
   "nodes": [
     {
       "parameters": {
-        "content": "Configura este workflow antes de activarlo:\n\n1. Asigna credenciales a `OpenAI Chat Model`, `Embeddings OpenAI` y `Redis Chat Memory`.\n\n2. Asigna credenciales PostgreSQL al nodo `RAG Company Knowledge` con host `postgres`, puerto `5432`, base `rag`.\n\n3. Edita el nodo `Normalize Evolution Message` para poner tu `evolutionApiKey` real si no quieres gestionarlo por credenciales.\n\n4. Configura el nodo `Google Calendar MCP Tool` apuntando a tu servidor MCP.\n\n5. En Evolution configura el webhook de entrada hacia la URL de producción de este workflow.\n\nEste flujo está pensado para mensajes entrantes de WhatsApp, agrupa mensajes recibidos en una ventana de 5 segundos y solo deja continuar a la última ejecución.",
+        "content": "Configura este workflow antes de activarlo:\n\n1. Asigna credenciales a `OpenAI Chat Model` y `Embeddings OpenAI`.\n\n2. En `OpenAI Chat Model` selecciona un modelo con function calling (recomendado: `gpt-4o-mini`). Modelos sin tool calling provocarán bucles y error de max iterations.\n\n3. Asigna credenciales PostgreSQL al nodo `RAG Company Knowledge` con host `postgres`, puerto `5432`, base `rag`.\n\n4. Edita el nodo `Normalize Evolution Message` para poner tu `evolutionApiKey` real y el `instanceName` de tu instancia de Evolution.\n\n5. Configura el nodo `Google Calendar MCP Tool` apuntando a tu servidor MCP (opcional, viene desactivado).\n\n6. En Evolution configura el webhook de entrada hacia la URL de producción de este workflow.\n\nEste flujo está pensado para mensajes entrantes de WhatsApp, agrupa mensajes recibidos en una ventana de 5 segundos y solo deja continuar a la última ejecución.",
         "height": 350,
         "width": 493,
         "color": 7
@@ -19,7 +19,7 @@
     },
     {
       "parameters": {
-        "content": "El agente usa dos capas de contexto:\n\n- Redis Buffer: agrupa varios mensajes seguidos en 5 segundos\n- Redis Chat Memory: mantiene memoria conversacional entre turnos\n\nEl RAG va como herramienta de consulta y Google Calendar entra por MCP Tool para crear, consultar, modificar y cancelar citas.",
+        "content": "El agente usa dos capas de contexto:\n\n- Redis Buffer: agrupa varios mensajes seguidos en 5 segundos\n- Simple Memory (buffer en memoria de n8n): mantiene el historial de los últimos turnos\n\nEl RAG va como herramienta de consulta y Google Calendar entra por MCP Tool para crear, consultar, modificar y cancelar citas.",
         "height": 260,
         "width": 401,
         "color": 5
@@ -178,8 +178,8 @@
     {
       "parameters": {
         "options": {
-          "systemMessage": "=Eres un asistente de WhatsApp para una empresa. Tu trabajo es responder con claridad, usando siempre el idioma del cliente, ser breve pero útil, consultar la base de conocimiento cuando pregunten por servicios, precios, procesos o información de empresa, y gestionar citas cuando el usuario quiera reservar, cambiar, cancelar o consultar disponibilidad.\\n\\nReglas:\\n- Usa la herramienta `company_knowledge` siempre que la pregunta requiera información de la empresa o políticas internas.\\n- Usa la herramienta MCP de Google Calendar para consultar disponibilidad, crear citas, mover citas y cancelarlas.\\n- Si una franja no está disponible, ofrece alternativas cercanas.\\n- No inventes disponibilidad ni datos de la empresa.\\n- Si falta información para reservar, pide solo los datos mínimos necesarios.\\n- La respuesta final debe ser texto plano, lista para enviar por WhatsApp.\\n- Nunca expliques herramientas internas, MCP, Redis o RAG al cliente.",
-          "maxIterations": 8,
+          "systemMessage": "=Eres un asistente de WhatsApp para una empresa. Responde en el idioma del usuario, breve y en texto plano.\\n\\nREGLA OBLIGATORIA — NUNCA LA ROMPAS:\\nSi la pregunta toca CUALQUIERA de estos temas → ANTES de responder, llama a la herramienta `company_knowledge`:\\n- Nombre, sector, actividad o descripción de la empresa\\n- Servicios, productos, precios, condiciones\\n- Procesos, políticas, horarios, contacto\\n- Cualquier dato concreto del negocio\\n\\nNo respondas con conocimiento general. No inventes. Si `company_knowledge` no devuelve info sobre el tema, dilo explícitamente.\\n\\nPara citas (reservar, cambiar, cancelar, ver disponibilidad) usa las herramientas de Google Calendar.\\n\\nNunca menciones al usuario las herramientas internas (company_knowledge, MCP, Redis, RAG).",
+          "maxIterations": 15,
           "returnIntermediateSteps": false,
           "passthroughBinaryImages": true,
           "enableStreaming": false
@@ -215,28 +215,22 @@
     },
     {
       "parameters": {
-        "sessionKey": "={{ $json.memorySessionId }}"
+        "contextWindowLength": 20
       },
       "id": "45f9b0de-ee87-4722-9892-50b5992ffee4",
-      "name": "Redis Chat Memory",
-      "type": "@n8n/n8n-nodes-langchain.memoryRedisChat",
-      "typeVersion": 1.1,
+      "name": "Simple Memory",
+      "type": "@n8n/n8n-nodes-langchain.memoryBufferWindow",
+      "typeVersion": 1.3,
       "position": [
         1504,
         656
-      ],
-      "credentials": {
-        "redis": {
-          "id": "ojrnwrI50piCjytq",
-          "name": "Redis account"
-        }
-      }
+      ]
     },
     {
       "parameters": {
         "mode": "retrieve-as-tool",
         "toolName": "company_knowledge",
-        "toolDescription": "Usa esta herramienta para responder preguntas sobre la empresa, servicios, condiciones, procesos, políticas, horarios y contexto del negocio usando la base vectorial local.",
+        "toolDescription": "Base de conocimiento oficial de la empresa. ÚSALA SIEMPRE que el usuario pregunte por: nombre de la empresa, sector, servicios, productos, precios, procesos, políticas, horarios, contacto o cualquier dato del negocio. Recibe la pregunta del usuario en lenguaje natural y devuelve fragmentos relevantes con la información real. Es la ÚNICA fuente fiable sobre la empresa — no respondas a estas preguntas sin consultarla primero.",
         "tableName": "n8n_rag_documents",
         "topK": 5,
         "options": {
@@ -538,7 +532,7 @@
         ]
       ]
     },
-    "Redis Chat Memory": {
+    "Simple Memory": {
       "ai_memory": [
         [
           {
