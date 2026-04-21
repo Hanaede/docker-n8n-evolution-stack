@@ -91,7 +91,7 @@
     {
       "parameters": {
         "mode": "runOnceForEachItem",
-        "jsCode": "const norm = $('Normalize Evolution Message').item.json;\nlet previous = null;\ntry {\n  previous = $json.bufferSnapshot ? JSON.parse($json.bufferSnapshot) : null;\n} catch (error) {\n  previous = null;\n}\nconst now = Date.now();\nconst withinWindow = previous && Number(previous.updatedAt || 0) >= now - 5000;\nconst mergedText = [withinWindow ? previous.text : '', norm.text].filter(Boolean).join('\\n');\nconst debounceToken = `${norm.messageId}:${now}`;\nconst payload = {\n  token: debounceToken,\n  text: mergedText,\n  updatedAt: now,\n  remoteJid: norm.remoteJid,\n  pushName: norm.pushName,\n  instanceName: norm.instanceName\n};\nreturn {\n  json: {\n    ...norm,\n    chatInput: mergedText,\n    debounceToken,\n    bufferPayload: JSON.stringify(payload)\n  }\n};"
+        "jsCode": "const norm = $('Normalize Evolution Message').first().json;\nlet previous = null;\ntry {\n  previous = $json.bufferSnapshot ? JSON.parse($json.bufferSnapshot) : null;\n} catch (error) {\n  previous = null;\n}\nconst now = Date.now();\nconst withinWindow = previous && Number(previous.updatedAt || 0) >= now - 5000;\nconst mergedText = [withinWindow ? previous.text : '', norm.text].filter(Boolean).join('\\n');\nconst debounceToken = `${norm.messageId}:${now}`;\nconst payload = {\n  token: debounceToken,\n  text: mergedText,\n  updatedAt: now,\n  remoteJid: norm.remoteJid,\n  pushName: norm.pushName,\n  instanceName: norm.instanceName\n};\nreturn {\n  json: {\n    ...norm,\n    chatInput: mergedText,\n    debounceToken,\n    bufferPayload: JSON.stringify(payload)\n  }\n};"
       },
       "id": "074193fd-3153-4ccb-a8ef-e0f68d3addc5",
       "name": "Merge 5s Buffer",
@@ -164,7 +164,7 @@
     {
       "parameters": {
         "mode": "runOnceForEachItem",
-        "jsCode": "const prev = $('Merge 5s Buffer').item.json;\nlet latest = null;\ntry {\n  latest = $json.latestBuffer ? JSON.parse($json.latestBuffer) : null;\n} catch (error) {\n  latest = null;\n}\nif (!latest || latest.token !== prev.debounceToken) {\n  return [];\n}\nreturn {\n  json: {\n    ...prev,\n    chatInput: latest.text,\n    groupedMessageText: latest.text\n  }\n};"
+        "jsCode": "const prev = $('Merge 5s Buffer').first().json;\nlet latest = null;\ntry {\n  latest = $json.latestBuffer ? JSON.parse($json.latestBuffer) : null;\n} catch (error) {\n  latest = null;\n}\nif (!latest || latest.token !== prev.debounceToken) {\n  return [];\n}\nreturn {\n  json: {\n    ...prev,\n    chatInput: latest.text,\n    groupedMessageText: latest.text\n  }\n};"
       },
       "id": "42da45e3-c487-4476-9100-e53e0c082ea3",
       "name": "Only Latest Execution Continues",
