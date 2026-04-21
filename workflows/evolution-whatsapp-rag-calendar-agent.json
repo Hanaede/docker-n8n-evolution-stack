@@ -303,7 +303,7 @@
     {
       "parameters": {
         "mode": "runOnceForEachItem",
-        "jsCode": "const responseText = $json.output ?? $json.response ?? 'No he podido procesar tu solicitud ahora mismo.';\nconst targetNumber = ($json.remoteJid || '').replace(/@s\\.whatsapp\\.net$/, '').replace(/@g\\.us$/, '');\nreturn {\n  json: {\n    ...$json,\n    responseText,\n    targetNumber,\n    evolutionSendUrl: `${$json.evolutionBaseUrl}/message/sendText/${$json.instanceName}`\n  }\n};"
+        "jsCode": "const norm = $('Normalize Evolution Message').first().json;\nconst responseText = $json.output ?? $json.response ?? 'No he podido procesar tu solicitud ahora mismo.';\nconst targetNumber = (norm.remoteJid || '').replace(/@s\\.whatsapp\\.net$/, '').replace(/@g\\.us$/, '');\nreturn {\n  json: {\n    ...$json,\n    responseText,\n    targetNumber,\n    remoteJid: norm.remoteJid,\n    evolutionBaseUrl: norm.evolutionBaseUrl,\n    evolutionApiKey: norm.evolutionApiKey,\n    instanceName: norm.instanceName,\n    evolutionSendUrl: `${norm.evolutionBaseUrl}/message/sendText/${norm.instanceName}`\n  }\n};"
       },
       "id": "e4656dd7-327f-427a-9fd6-cba276765146",
       "name": "Prepare WhatsApp Reply",
