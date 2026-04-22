@@ -72,20 +72,13 @@ cd docker-n8n-evolution-stack
 cp .env.example .env
 ```
 
-3. Edita `.env` y cambia al menos:
-
-- `POSTGRES_PASSWORD`
-- `N8N_ENCRYPTION_KEY`
-- `AUTHENTICATION_API_KEY`
-- `TZ` si lo necesitas
-
-4. Levanta el stack:
+3. Levanta el stack:
 
 ```bash
 docker compose up -d
 ```
 
-5. Comprueba los contenedores:
+4. Comprueba los contenedores:
 
 ```bash
 docker compose ps
@@ -173,7 +166,8 @@ Desde tu máquina:
 
 Desde el contenedor de Evolution API:
 
-- `http://n8n:5678`
+- `http://n8n:5678/webhook-test/evolution-whatsapp-agent` URL DE TEST
+- `http://n8n:5678/webhook/evolution-whatsapp-agent` URL DE PRODUCCIÓN
 
 No uses `localhost` entre contenedores.
 
