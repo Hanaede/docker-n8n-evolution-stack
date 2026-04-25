@@ -1,0 +1,364 @@
+{
+  "name": "[Sheets] Registrar reunión",
+  "nodes": [
+    {
+      "parameters": {
+        "inputSource": "passthrough"
+      },
+      "id": "370d7290-e0a0-4656-9ece-6b0ed76525de",
+      "name": "Input",
+      "type": "n8n-nodes-base.executeWorkflowTrigger",
+      "typeVersion": 1.1,
+      "position": [
+        0,
+        0
+      ]
+    },
+    {
+      "parameters": {
+        "documentId": {
+          "__rl": true,
+          "value": "1Zj7JVf2zaxKQEX1gd2uQLx88M2zG-vDM8v8aiuvsp3o",
+          "mode": "list",
+          "cachedResultName": "clientes",
+          "cachedResultUrl": "https://docs.google.com/spreadsheets/d/1Zj7JVf2zaxKQEX1gd2uQLx88M2zG-vDM8v8aiuvsp3o/edit?usp=drivesdk"
+        },
+        "sheetName": {
+          "__rl": true,
+          "value": 1745593851,
+          "mode": "list",
+          "cachedResultName": "Clientes",
+          "cachedResultUrl": "https://docs.google.com/spreadsheets/d/1Zj7JVf2zaxKQEX1gd2uQLx88M2zG-vDM8v8aiuvsp3o/edit#gid=1745593851"
+        },
+        "filtersUI": {
+          "values": [
+            {
+              "lookupColumn": "Email",
+              "lookupValue": "={{ $json.email }}"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "694a2c1e-7160-4919-bc23-ef45ac03d72a",
+      "name": "Buscar en Clientes",
+      "type": "n8n-nodes-base.googleSheets",
+      "typeVersion": 4.5,
+      "position": [
+        240,
+        0
+      ],
+      "alwaysOutputData": true,
+      "credentials": {
+        "googleSheetsOAuth2Api": {
+          "id": "PxzWlJZbGdQs2q8T",
+          "name": "Google Sheets account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 2
+          },
+          "conditions": [
+            {
+              "id": "c1",
+              "leftValue": "={{ $json.Email }}",
+              "operator": {
+                "type": "string",
+                "operation": "exists",
+                "singleValue": true
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "id": "b9b683d2-4dd7-43d3-9378-627301beaba6",
+      "name": "¿Cliente existe?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
+      "position": [
+        480,
+        0
+      ]
+    },
+    {
+      "parameters": {
+        "operation": "append",
+        "documentId": {
+          "__rl": true,
+          "value": "1Zj7JVf2zaxKQEX1gd2uQLx88M2zG-vDM8v8aiuvsp3o",
+          "mode": "list",
+          "cachedResultName": "clientes",
+          "cachedResultUrl": "https://docs.google.com/spreadsheets/d/1Zj7JVf2zaxKQEX1gd2uQLx88M2zG-vDM8v8aiuvsp3o/edit?usp=drivesdk"
+        },
+        "sheetName": {
+          "__rl": true,
+          "value": 1745593851,
+          "mode": "list",
+          "cachedResultName": "Clientes",
+          "cachedResultUrl": "https://docs.google.com/spreadsheets/d/1Zj7JVf2zaxKQEX1gd2uQLx88M2zG-vDM8v8aiuvsp3o/edit#gid=1745593851"
+        },
+        "columns": {
+          "mappingMode": "defineBelow",
+          "value": {
+            "Nombre": "={{ $('Input').first().json.nombre }}",
+            "Email": "={{ $('Input').first().json.email }}"
+          },
+          "matchingColumns": [],
+          "schema": [
+            {
+              "id": "Nombre",
+              "displayName": "Nombre",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "Email",
+              "displayName": "Email",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            }
+          ],
+          "attemptToConvertTypes": false,
+          "convertFieldsToString": false
+        },
+        "options": {}
+      },
+      "id": "e627b288-f8f3-465f-8e35-9b333a58e9d5",
+      "name": "Añadir a Clientes",
+      "type": "n8n-nodes-base.googleSheets",
+      "typeVersion": 4.5,
+      "position": [
+        720,
+        176
+      ],
+      "credentials": {
+        "googleSheetsOAuth2Api": {
+          "id": "PxzWlJZbGdQs2q8T",
+          "name": "Google Sheets account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "operation": "append",
+        "documentId": {
+          "__rl": true,
+          "value": "1Zj7JVf2zaxKQEX1gd2uQLx88M2zG-vDM8v8aiuvsp3o",
+          "mode": "list",
+          "cachedResultName": "clientes",
+          "cachedResultUrl": "https://docs.google.com/spreadsheets/d/1Zj7JVf2zaxKQEX1gd2uQLx88M2zG-vDM8v8aiuvsp3o/edit?usp=drivesdk"
+        },
+        "sheetName": {
+          "__rl": true,
+          "value": "gid=0",
+          "mode": "list",
+          "cachedResultName": "Reuniones",
+          "cachedResultUrl": "https://docs.google.com/spreadsheets/d/1Zj7JVf2zaxKQEX1gd2uQLx88M2zG-vDM8v8aiuvsp3o/edit#gid=0"
+        },
+        "columns": {
+          "mappingMode": "defineBelow",
+          "value": {
+            "Nombre cliente": "={{ $('Input').first().json.nombre }}",
+            "Email cliente": "={{ $('Input').first().json.email }}",
+            "Título de la reunión": "={{ $('Input').first().json.titulo }}",
+            "fecha de la reunión": "={{ DateTime.fromISO($('Input').first().json.fecha, { zone: 'Europe/Madrid' }).toFormat('dd/MM/yy HH:mm') }}",
+            "Resumen": ""
+          },
+          "matchingColumns": [],
+          "schema": [
+            {
+              "id": "Nombre cliente",
+              "displayName": "Nombre cliente",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "Email cliente",
+              "displayName": "Email cliente",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "Título de la reunión",
+              "displayName": "Título de la reunión",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "fecha de la reunión",
+              "displayName": "fecha de la reunión",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "Resumen",
+              "displayName": "Resumen",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            }
+          ],
+          "attemptToConvertTypes": false,
+          "convertFieldsToString": false
+        },
+        "options": {}
+      },
+      "id": "e0d23a18-842b-4bd4-84aa-79303c39a227",
+      "name": "Añadir a Reuniones",
+      "type": "n8n-nodes-base.googleSheets",
+      "typeVersion": 4.5,
+      "position": [
+        960,
+        0
+      ],
+      "credentials": {
+        "googleSheetsOAuth2Api": {
+          "id": "PxzWlJZbGdQs2q8T",
+          "name": "Google Sheets account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "r1",
+              "name": "registrado",
+              "value": true,
+              "type": "boolean"
+            },
+            {
+              "id": "r2",
+              "name": "mensaje",
+              "value": "Reunión registrada correctamente",
+              "type": "string"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "c4fbb88b-e372-4201-ac30-c0d4a2e09e32",
+      "name": "Respuesta",
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [
+        1200,
+        0
+      ]
+    }
+  ],
+  "pinData": {},
+  "connections": {
+    "Input": {
+      "main": [
+        [
+          {
+            "node": "Buscar en Clientes",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Buscar en Clientes": {
+      "main": [
+        [
+          {
+            "node": "¿Cliente existe?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "¿Cliente existe?": {
+      "main": [
+        [
+          {
+            "node": "Añadir a Reuniones",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Añadir a Clientes",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Añadir a Clientes": {
+      "main": [
+        [
+          {
+            "node": "Añadir a Reuniones",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Añadir a Reuniones": {
+      "main": [
+        [
+          {
+            "node": "Respuesta",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": true,
+  "settings": {
+    "executionOrder": "v1",
+    "binaryMode": "separate"
+  },
+  "versionId": "d589b0b2-b9ef-466d-8893-daaa417fd514",
+  "meta": {
+    "templateCredsSetupCompleted": true,
+    "instanceId": "ffd72b706b1c72d2b3708c3551df9b9d653765952a7acf3534136c2fc40441a1"
+  },
+  "id": "rGOWVIuATbC6PNw6",
+  "tags": []
+}

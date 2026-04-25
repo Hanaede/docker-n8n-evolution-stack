@@ -1,0 +1,695 @@
+{
+  "name": "Evolution WhatsApp RAG Calendar Agent",
+  "nodes": [
+    {
+      "parameters": {
+        "content": "Configura este workflow antes de activarlo:\n\n1. Asigna credenciales a `OpenAI Chat Model` y `Embeddings OpenAI`.\n\n2. En `OpenAI Chat Model` selecciona un modelo con function calling (recomendado: `gpt-4o-mini`). Modelos sin tool calling provocarán bucles y error de max iterations.\n\n3. Asigna credenciales PostgreSQL al nodo `RAG Company Knowledge` con host `postgres`, puerto `5432`, base `rag`.\n\n4. Edita el nodo `Normalize Evolution Message` para poner tu `evolutionApiKey` real y el `instanceName` de tu instancia de Evolution.\n\n5. El nodo `MCP Tool` conecta al `MCP Server Trigger` del propio workflow. Todas las herramientas del agente (`RAG Company Knowledge` y los nodos de Google Calendar) se enrutan por ahí: actívalos cuando los necesites y conéctalos al `MCP Server Trigger` con `ai_tool`.\n\n6. En Evolution configura el webhook de entrada hacia la URL de producción de este workflow.\n\nEste flujo está pensado para mensajes entrantes de WhatsApp, agrupa mensajes recibidos en una ventana de 5 segundos y solo deja continuar a la última ejecución.",
+        "height": 350,
+        "width": 493,
+        "color": 7
+      },
+      "id": "d0848047-9bc5-432f-aec5-8b110babb17e",
+      "name": "Notas de Setup",
+      "type": "n8n-nodes-base.stickyNote",
+      "typeVersion": 1,
+      "position": [
+        560,
+        1136
+      ]
+    },
+    {
+      "parameters": {
+        "content": "El agente usa dos capas de contexto:\n\n- Redis Buffer: agrupa varios mensajes seguidos en 5 segundos\n- Simple Memory (buffer en memoria de n8n): mantiene el historial de los últimos turnos\n\nEl RAG va como herramienta de consulta y Google Calendar entra por MCP Tool para crear, consultar, modificar y cancelar citas.",
+        "height": 260,
+        "width": 401,
+        "color": 5
+      },
+      "id": "c834fd1c-60d2-4a72-a908-803aec86c047",
+      "name": "Notas de Arquitectura",
+      "type": "n8n-nodes-base.stickyNote",
+      "typeVersion": 1,
+      "position": [
+        2192,
+        1232
+      ]
+    },
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "evolution-whatsapp-agent",
+        "options": {
+          "responseData": "ok"
+        }
+      },
+      "id": "1008f18e-5b23-417f-9f17-4a3fe25d83ea",
+      "name": "Evolution Incoming Webhook",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2,
+      "position": [
+        -176,
+        1552
+      ],
+      "webhookId": "evolution-whatsapp-agent"
+    },
+    {
+      "parameters": {
+        "mode": "runOnceForEachItem",
+        "jsCode": "const body = $json.body ?? $json;\nconst data = body.data ?? body;\nconst key = data.key ?? {};\nconst message = data.message ?? {};\nconst fromMe = key.fromMe ?? data.fromMe ?? false;\nconst remoteJid = key.remoteJid ?? data.remoteJid ?? data.from ?? body.sender ?? '';\nconst text = message.conversation ?? message.extendedTextMessage?.text ?? message.imageMessage?.caption ?? message.videoMessage?.caption ?? data.body ?? body.body ?? '';\nif (fromMe || !remoteJid || !text) {\n  return null;\n}\nconst messageId = key.id ?? data.id ?? `${Date.now()}`;\nconst instanceName = body.instance ?? body.instanceName ?? data.instance ?? 'CHANGE_ME';\nconst sessionId = remoteJid.replace(/[^a-zA-Z0-9:_-]/g, '_');\nconst pushName = data.pushName ?? body.pushName ?? '';\nconst webhookItem = $('Evolution Incoming Webhook').first().json;\nconst evolutionApiKey = webhookItem.body?.apikey ?? webhookItem.apikey ?? body.apikey ?? data.apikey ?? '';\nreturn {\n  json: {\n    rawBody: body,\n    remoteJid,\n    pushName,\n    text,\n    chatInput: text,\n    messageId,\n    instanceName,\n    sessionId,\n    memorySessionId: `wa-memory:${sessionId}`,\n    bufferKey: `wa-buffer:${sessionId}`,\n    evolutionBaseUrl: 'http://evolution-api:8080',\n    evolutionApiKey,\n    googleCalendarMcpUrl: 'http://host.docker.internal:3001/mcp'\n  }\n};"
+      },
+      "id": "26ee7a19-6f09-47e6-a73a-10bc6f147f4c",
+      "name": "Normalize Evolution Message",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        64,
+        1552
+      ]
+    },
+    {
+      "parameters": {
+        "operation": "get",
+        "propertyName": "bufferSnapshot",
+        "key": "={{ $json.bufferKey }}",
+        "keyType": "string",
+        "options": {}
+      },
+      "id": "afc4cc3b-d4ef-4dc3-9cac-8ace08273b6e",
+      "name": "Get Buffer Snapshot",
+      "type": "n8n-nodes-base.redis",
+      "typeVersion": 1,
+      "position": [
+        288,
+        1552
+      ],
+      "credentials": {
+        "redis": {
+          "id": "Myw5B5gIEfw2xhVS",
+          "name": "Redis account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "mode": "runOnceForEachItem",
+        "jsCode": "const norm = $('Normalize Evolution Message').first().json;\nlet previous = null;\ntry {\n  previous = $json.bufferSnapshot ? JSON.parse($json.bufferSnapshot) : null;\n} catch (error) {\n  previous = null;\n}\nconst now = Date.now();\nconst withinWindow = previous && Number(previous.updatedAt || 0) >= now - 5000;\nconst mergedText = [withinWindow ? previous.text : '', norm.text].filter(Boolean).join('\\n');\nconst debounceToken = `${norm.messageId}:${now}`;\nconst payload = {\n  token: debounceToken,\n  text: mergedText,\n  updatedAt: now,\n  remoteJid: norm.remoteJid,\n  pushName: norm.pushName,\n  instanceName: norm.instanceName\n};\nreturn {\n  json: {\n    ...norm,\n    chatInput: mergedText,\n    debounceToken,\n    bufferPayload: JSON.stringify(payload)\n  }\n};"
+      },
+      "id": "d314f4af-c9df-4dd9-8670-531b016b24cd",
+      "name": "Merge 5s Buffer",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        512,
+        1552
+      ]
+    },
+    {
+      "parameters": {
+        "operation": "set",
+        "key": "={{ $json.bufferKey }}",
+        "value": "={{ $json.bufferPayload }}"
+      },
+      "id": "f660c91e-59fa-4257-9da8-108076ccc54d",
+      "name": "Set Buffer Snapshot",
+      "type": "n8n-nodes-base.redis",
+      "typeVersion": 1,
+      "position": [
+        736,
+        1552
+      ],
+      "credentials": {
+        "redis": {
+          "id": "Myw5B5gIEfw2xhVS",
+          "name": "Redis account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "amount": 5,
+        "unit": "seconds"
+      },
+      "id": "3e08bbdf-1459-4935-815b-4b9d77dbadc6",
+      "name": "Wait 5 Seconds",
+      "type": "n8n-nodes-base.wait",
+      "typeVersion": 1,
+      "position": [
+        960,
+        1552
+      ],
+      "webhookId": "d11c3cec-d378-4d28-8890-bea56e7d5eff"
+    },
+    {
+      "parameters": {
+        "operation": "get",
+        "propertyName": "latestBuffer",
+        "key": "={{ $json.bufferKey }}",
+        "keyType": "string",
+        "options": {}
+      },
+      "id": "7d2d2431-13cf-4a92-aba4-12039889879d",
+      "name": "Get Latest Buffer",
+      "type": "n8n-nodes-base.redis",
+      "typeVersion": 1,
+      "position": [
+        1184,
+        1552
+      ],
+      "credentials": {
+        "redis": {
+          "id": "Myw5B5gIEfw2xhVS",
+          "name": "Redis account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "mode": "runOnceForEachItem",
+        "jsCode": "const prev = $('Merge 5s Buffer').first().json;\nlet latest = null;\ntry {\n  latest = $json.latestBuffer ? JSON.parse($json.latestBuffer) : null;\n} catch (error) {\n  latest = null;\n}\nif (!latest || latest.token !== prev.debounceToken) {\n  return null;\n}\nreturn {\n  json: {\n    ...prev,\n    chatInput: latest.text,\n    groupedMessageText: latest.text\n  }\n};"
+      },
+      "id": "0d6b27fc-ef47-49f7-bd1e-e3dd34f045f9",
+      "name": "Only Latest Execution Continues",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1392,
+        1552
+      ]
+    },
+    {
+      "parameters": {
+        "options": {
+          "systemMessage": "=Eres un asistente de WhatsApp para una empresa. Responde en el idioma del usuario, breve y en texto plano.\\n\\nTienes acceso a un conjunto de herramientas expuestas vía MCP. Entre ellas:\\n- Consulta de la base de conocimiento de la empresa: nombre, sector, servicios, productos, precios, condiciones, procesos, políticas, horarios, contacto y cualquier dato del negocio.\\n- Gestión de citas en Google Calendar: reservar, consultar disponibilidad, mover, cancelar o listar citas.\\n\\nREGLAS:\\n- Para CUALQUIER pregunta sobre la empresa o sus servicios: llama SIEMPRE a la herramienta de consulta de conocimiento. No respondas de memoria ni con conocimiento general.\\n- Para citas (cuando el usuario mencione una fecha, hora, día de la semana, o verbos como reservar/agendar/cancelar/mover): usa la herramienta de calendario.\\n- Si la herramienta de consulta no devuelve información sobre el tema pedido, dilo explícitamente en la respuesta.\\n- No inventes datos sobre la empresa ni sobre disponibilidad.\\n- Si falta información para reservar una cita, pide solo los datos mínimos necesarios (fecha, hora, nombre, motivo).\\n\\nNunca menciones al usuario las herramientas internas (MCP, Redis, RAG).",
+          "maxIterations": 15,
+          "returnIntermediateSteps": false,
+          "passthroughBinaryImages": true,
+          "enableStreaming": false
+        }
+      },
+      "id": "92da8783-4e8c-413b-b85e-045eb1d8f8bc",
+      "name": "AI Agent",
+      "type": "@n8n/n8n-nodes-langchain.agent",
+      "typeVersion": 3.1,
+      "position": [
+        2000,
+        1552
+      ]
+    },
+    {
+      "parameters": {
+        "options": {}
+      },
+      "id": "01a4a367-c237-4698-8209-624c6d6be5f9",
+      "name": "OpenAI Chat Model",
+      "type": "@n8n/n8n-nodes-langchain.lmChatOpenAi",
+      "typeVersion": 1.1,
+      "position": [
+        1824,
+        1760
+      ],
+      "credentials": {
+        "openAiApi": {
+          "id": "lZ9vSvzjqtdbIJ3O",
+          "name": "OpenAI account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "contextWindowLength": 20
+      },
+      "id": "2e2c0dba-7960-40c7-bc0a-be9439f477ff",
+      "name": "Simple Memory",
+      "type": "@n8n/n8n-nodes-langchain.memoryBufferWindow",
+      "typeVersion": 1.3,
+      "position": [
+        2032,
+        1760
+      ]
+    },
+    {
+      "parameters": {
+        "mode": "retrieve-as-tool",
+        "toolName": "company_knowledge",
+        "toolDescription": "Base de conocimiento oficial de la empresa. ÚSALA SIEMPRE que el usuario pregunte por: nombre de la empresa, sector, servicios, productos, precios, procesos, políticas, horarios, contacto o cualquier dato del negocio. Recibe la pregunta del usuario en lenguaje natural y devuelve fragmentos relevantes con la información real. Es la ÚNICA fuente fiable sobre la empresa — no respondas a estas preguntas sin consultarla primero.",
+        "tableName": "n8n_rag_documents",
+        "topK": 5,
+        "options": {
+          "distanceStrategy": "cosine",
+          "columnNames": {
+            "values": {}
+          }
+        }
+      },
+      "id": "07058ce0-4ad5-461e-905c-05c8492985bd",
+      "name": "RAG Company Knowledge",
+      "type": "@n8n/n8n-nodes-langchain.vectorStorePGVector",
+      "typeVersion": 1.2,
+      "position": [
+        3136,
+        1920
+      ],
+      "credentials": {
+        "postgres": {
+          "id": "lcojtFySOwYBnRM4",
+          "name": "Postgres account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "options": {
+          "dimensions": 1536,
+          "batchSize": 100,
+          "stripNewLines": true
+        }
+      },
+      "id": "8a6baaf4-886d-4cc4-a3bb-7218b5e733d7",
+      "name": "Embeddings OpenAI",
+      "type": "@n8n/n8n-nodes-langchain.embeddingsOpenAi",
+      "typeVersion": 1.2,
+      "position": [
+        3136,
+        2096
+      ],
+      "credentials": {
+        "openAiApi": {
+          "id": "lZ9vSvzjqtdbIJ3O",
+          "name": "OpenAI account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "endpointUrl": "=http://localhost:5678/mcp/30816c2a-30c6-4975-80ca-33de4443c96b",
+        "options": {
+          "timeout": 60000
+        }
+      },
+      "id": "808b6e96-fa9d-4864-a700-7e200c9f29f8",
+      "name": "MCP Tool",
+      "type": "@n8n/n8n-nodes-langchain.mcpClientTool",
+      "typeVersion": 1.2,
+      "position": [
+        2560,
+        1744
+      ]
+    },
+    {
+      "parameters": {
+        "mode": "runOnceForEachItem",
+        "jsCode": "const norm = $('Normalize Evolution Message').first().json;\nconst responseText = $json.output ?? $json.response ?? 'No he podido procesar tu solicitud ahora mismo.';\nconst targetNumber = (norm.remoteJid || '').replace(/@s\\.whatsapp\\.net$/, '').replace(/@g\\.us$/, '');\nreturn {\n  json: {\n    ...$json,\n    responseText,\n    targetNumber,\n    remoteJid: norm.remoteJid,\n    evolutionBaseUrl: norm.evolutionBaseUrl,\n    evolutionApiKey: norm.evolutionApiKey,\n    instanceName: norm.instanceName,\n    evolutionSendUrl: `${norm.evolutionBaseUrl}/message/sendText/${norm.instanceName}`\n  }\n};"
+      },
+      "id": "28751de2-ce7f-4c75-840a-f17f11a1e169",
+      "name": "Prepare WhatsApp Reply",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        2368,
+        1552
+      ]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "={{ $json.evolutionSendUrl }}",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "apikey",
+              "value": "={{ $json.evolutionApiKey }}"
+            },
+            {
+              "name": "Content-Type",
+              "value": "application/json"
+            }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ { number: $json.targetNumber, text: $json.responseText } }}",
+        "options": {}
+      },
+      "id": "534c9af8-932e-4bd1-b247-425d17d32938",
+      "name": "Send WhatsApp Reply via Evolution",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        2624,
+        1552
+      ]
+    },
+    {
+      "parameters": {
+        "path": "30816c2a-30c6-4975-80ca-33de4443c96b"
+      },
+      "type": "@n8n/n8n-nodes-langchain.mcpTrigger",
+      "typeVersion": 2,
+      "position": [
+        3232,
+        1296
+      ],
+      "id": "6e6502d6-28e8-4f04-9b4c-0bd93de5a2fb",
+      "name": "MCP Server Trigger",
+      "webhookId": "30816c2a-30c6-4975-80ca-33de4443c96b"
+    },
+    {
+      "parameters": {
+        "calendar": {
+          "__rl": true,
+          "value": "26f8ac8bb06e5c43ad565a4151d74700a8e5e237978ccbf3738ca3578db87f76@group.calendar.google.com",
+          "mode": "list",
+          "cachedResultName": "prueba clase"
+        },
+        "start": "={{ /*n8n-auto-generated-fromAI-override*/ $fromAI('Start', ``, 'string') }}",
+        "end": "={{ /*n8n-auto-generated-fromAI-override*/ $fromAI('End', ``, 'string') }}",
+        "additionalFields": {
+          "attendees": [],
+          "summary": "={{ /*n8n-auto-generated-fromAI-override*/ $fromAI('Summary', ``, 'string') }}"
+        }
+      },
+      "type": "n8n-nodes-base.googleCalendarTool",
+      "typeVersion": 1.3,
+      "position": [
+        2944,
+        1536
+      ],
+      "id": "578e5572-6ad4-49e9-bf14-ddd2d171ae12",
+      "name": "Create an event in Google Calendar",
+      "credentials": {
+        "googleCalendarOAuth2Api": {
+          "id": "lfPk0D1Hd7rcFBZt",
+          "name": "Google Calendar account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "operation": "getAll",
+        "calendar": {
+          "__rl": true,
+          "value": "26f8ac8bb06e5c43ad565a4151d74700a8e5e237978ccbf3738ca3578db87f76@group.calendar.google.com",
+          "mode": "list",
+          "cachedResultName": "prueba clase"
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.googleCalendarTool",
+      "typeVersion": 1.3,
+      "position": [
+        3152,
+        1536
+      ],
+      "id": "b03cf188-d419-4738-8e5e-ddfed31fae72",
+      "name": "Get many events in Google Calendar",
+      "credentials": {
+        "googleCalendarOAuth2Api": {
+          "id": "lfPk0D1Hd7rcFBZt",
+          "name": "Google Calendar account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "operation": "delete",
+        "calendar": {
+          "__rl": true,
+          "value": "26f8ac8bb06e5c43ad565a4151d74700a8e5e237978ccbf3738ca3578db87f76@group.calendar.google.com",
+          "mode": "list",
+          "cachedResultName": "prueba clase"
+        },
+        "eventId": "={{ /*n8n-auto-generated-fromAI-override*/ $fromAI('Event_ID', ``, 'string') }}",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.googleCalendarTool",
+      "typeVersion": 1.3,
+      "position": [
+        3376,
+        1552
+      ],
+      "id": "d924072d-8bc4-497e-999a-c2a87e0b1ac9",
+      "name": "Delete an event in Google Calendar",
+      "credentials": {
+        "googleCalendarOAuth2Api": {
+          "id": "lfPk0D1Hd7rcFBZt",
+          "name": "Google Calendar account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "operation": "update",
+        "calendar": {
+          "__rl": true,
+          "value": "26f8ac8bb06e5c43ad565a4151d74700a8e5e237978ccbf3738ca3578db87f76@group.calendar.google.com",
+          "mode": "list",
+          "cachedResultName": "prueba clase"
+        },
+        "eventId": "={{ /*n8n-auto-generated-fromAI-override*/ $fromAI('Event_ID', ``, 'string') }}",
+        "updateFields": {
+          "end": "={{ /*n8n-auto-generated-fromAI-override*/ $fromAI('End', ``, 'string') }}",
+          "start": "={{ /*n8n-auto-generated-fromAI-override*/ $fromAI('Start', ``, 'string') }}",
+          "summary": "={{ /*n8n-auto-generated-fromAI-override*/ $fromAI('Summary', ``, 'string') }}"
+        }
+      },
+      "type": "n8n-nodes-base.googleCalendarTool",
+      "typeVersion": 1.3,
+      "position": [
+        3648,
+        1536
+      ],
+      "id": "8e10d98b-42bb-4a34-8e02-8213dc900a96",
+      "name": "Update an event in Google Calendar",
+      "credentials": {
+        "googleCalendarOAuth2Api": {
+          "id": "lfPk0D1Hd7rcFBZt",
+          "name": "Google Calendar account"
+        }
+      }
+    }
+  ],
+  "pinData": {},
+  "connections": {
+    "Evolution Incoming Webhook": {
+      "main": [
+        [
+          {
+            "node": "Normalize Evolution Message",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Normalize Evolution Message": {
+      "main": [
+        [
+          {
+            "node": "Get Buffer Snapshot",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Get Buffer Snapshot": {
+      "main": [
+        [
+          {
+            "node": "Merge 5s Buffer",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Merge 5s Buffer": {
+      "main": [
+        [
+          {
+            "node": "Set Buffer Snapshot",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Set Buffer Snapshot": {
+      "main": [
+        [
+          {
+            "node": "Wait 5 Seconds",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Wait 5 Seconds": {
+      "main": [
+        [
+          {
+            "node": "Get Latest Buffer",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Get Latest Buffer": {
+      "main": [
+        [
+          {
+            "node": "Only Latest Execution Continues",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Only Latest Execution Continues": {
+      "main": [
+        [
+          {
+            "node": "AI Agent",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "OpenAI Chat Model": {
+      "ai_languageModel": [
+        [
+          {
+            "node": "AI Agent",
+            "type": "ai_languageModel",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Simple Memory": {
+      "ai_memory": [
+        [
+          {
+            "node": "AI Agent",
+            "type": "ai_memory",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "RAG Company Knowledge": {
+      "ai_tool": [
+        [
+          {
+            "node": "MCP Server Trigger",
+            "type": "ai_tool",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Embeddings OpenAI": {
+      "ai_embedding": [
+        [
+          {
+            "node": "RAG Company Knowledge",
+            "type": "ai_embedding",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "MCP Tool": {
+      "ai_tool": [
+        [
+          {
+            "node": "AI Agent",
+            "type": "ai_tool",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "AI Agent": {
+      "main": [
+        [
+          {
+            "node": "Prepare WhatsApp Reply",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Prepare WhatsApp Reply": {
+      "main": [
+        [
+          {
+            "node": "Send WhatsApp Reply via Evolution",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Create an event in Google Calendar": {
+      "ai_tool": [
+        [
+          {
+            "node": "MCP Server Trigger",
+            "type": "ai_tool",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Get many events in Google Calendar": {
+      "ai_tool": [
+        [
+          {
+            "node": "MCP Server Trigger",
+            "type": "ai_tool",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Delete an event in Google Calendar": {
+      "ai_tool": [
+        [
+          {
+            "node": "MCP Server Trigger",
+            "type": "ai_tool",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Update an event in Google Calendar": {
+      "ai_tool": [
+        [
+          {
+            "node": "MCP Server Trigger",
+            "type": "ai_tool",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": true,
+  "settings": {
+    "executionOrder": "v1",
+    "binaryMode": "separate"
+  },
+  "versionId": "35263c73-aa1f-4936-9131-7c3b4d4584de",
+  "meta": {
+    "templateCredsSetupCompleted": true,
+    "instanceId": "ffd72b706b1c72d2b3708c3551df9b9d653765952a7acf3534136c2fc40441a1"
+  },
+  "id": "YK81bO6YxIZIZWMf",
+  "tags": []
+}

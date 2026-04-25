@@ -1,0 +1,475 @@
+{
+  "name": "Prueba mcp google calendar",
+  "nodes": [
+    {
+      "parameters": {
+        "options": {}
+      },
+      "type": "@n8n/n8n-nodes-langchain.chatTrigger",
+      "typeVersion": 1.4,
+      "position": [
+        1424,
+        112
+      ],
+      "id": "c279c5d3-2151-4c4f-8d64-2fbad350f128",
+      "name": "When chat message received",
+      "webhookId": "9029335c-0976-4d8d-8a78-4512a659e46b"
+    },
+    {
+      "parameters": {
+        "options": {
+          "systemMessage": "=Hoy es {{ $now.setZone('Europe/Madrid').toFormat('EEEE dd/MM/yyyy HH:mm') }} (Europe/Madrid).\n\nEres un asistente que gestiona reuniones con clientes. Tienes 2 sistemas conectados: Google Calendar y Google Sheets.\n\n# HERRAMIENTAS\n- calendar (MCP Google Calendar): SearchEvent, CreateEvent, UpdateEvent, DeleteEvent.\n- sheets mcp reuniones (MCP Google Sheets):\n  - New_meeting: registra reunion + cliente en Sheets (params: email, nombre, titulo, fecha)\n  - get_reunion_history: obtiene perfil + historial de un cliente (param: email)\n  - contactar_clientes_inactivos: envia email automaticamente a todos los clientes con mas de 30 dias sin reunion (sin parametros)\n\n# REGLAS\n\n## 1. CREAR UNA REUNION NUEVA (FLUJO OBLIGATORIO DE 2 PASOS)\nCuando el usuario pida agendar, crear o apuntar una reunion haces SIEMPRE estos 2 pasos EN ORDEN:\n  Paso A) CreateEvent para crear el evento en Google Calendar e invitar al cliente por email.\n  Paso B) New_meeting para registrar la reunion en Sheets.\nNO hagas solo uno. Si completas solo Calendar o solo Sheets la tarea esta incompleta.\nSi falta algun dato obligatorio (email, nombre, titulo, fecha), preguntalo ANTES de llamar ninguna tool.\n\n## 2. CONSULTAR HISTORIAL\nLlama a get_reunion_history con el email del cliente.\n\n## 3. CONTACTAR CLIENTES INACTIVOS\nCuando el usuario pida contactar con clientes inactivos, clientes que llevan X dias sin hablar, o reactivar clientes, llama a contactar_clientes_inactivos (sin parametros). El sistema enviara automaticamente un email de retomar contacto a todos los clientes con mas de 30 dias sin reunion. Devuelve cuantos emails se han enviado.\n\n## 4. FORMATO DE FECHAS (IMPORTANTE)\nTodas las horas son en zona Europe/Madrid. Envia las fechas a las tools en formato NAIVE (sin offset, sin Z, sin timezone): YYYY-MM-DDTHH:mm:ss\n  Correcto: 2026-04-22T10:00:00\n  Incorrecto: 2026-04-22T10:00:00Z   (UTC)\n  Incorrecto: 2026-04-22T10:00:00+02:00   (con offset)\nEl sistema convierte automaticamente al timezone correcto. No intentes convertir horarios tu mismo.\nInterpreta fechas relativas (manana, el martes, a las 10) usando la fecha actual del inicio de este prompt.\n\n## 5. SI ALGO FALLA\nSi tras 3 intentos no logras completar una accion, detente y explica al usuario que falta o que error ha ocurrido. No reintentes indefinidamente."
+        }
+      },
+      "type": "@n8n/n8n-nodes-langchain.agent",
+      "typeVersion": 3.1,
+      "position": [
+        1632,
+        112
+      ],
+      "id": "21e7137b-edf3-4939-9297-535a8b250670",
+      "name": "AI Agent"
+    },
+    {
+      "parameters": {
+        "model": {
+          "__rl": true,
+          "value": "gpt-4o-mini",
+          "mode": "list",
+          "cachedResultName": "gpt-4o-mini"
+        },
+        "builtInTools": {},
+        "options": {}
+      },
+      "type": "@n8n/n8n-nodes-langchain.lmChatOpenAi",
+      "typeVersion": 1.3,
+      "position": [
+        1632,
+        320
+      ],
+      "id": "8e8e8f3f-c5eb-4466-981e-5b1863919a6c",
+      "name": "OpenAI Chat Model",
+      "credentials": {
+        "openAiApi": {
+          "id": "lZ9vSvzjqtdbIJ3O",
+          "name": "OpenAI account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "name": "New_meeting",
+        "description": "Registra una reunión nueva en Google Sheets. Busca si el asistente ya es cliente; si no lo es, lo añade a la hoja Clientes. Siempre añade la reunión a la hoja Reuniones.",
+        "workflowId": {
+          "__rl": true,
+          "value": "rGOWVIuATbC6PNw6",
+          "mode": "list",
+          "cachedResultUrl": "/workflow/rGOWVIuATbC6PNw6",
+          "cachedResultName": "[Sheets] Registrar reunión"
+        },
+        "workflowInputs": {
+          "mappingMode": "defineBelow",
+          "value": {
+            "email": "={{ $fromAI('email', 'Email del cliente asistente a la reunión', 'string') }}",
+            "nombre": "={{ $fromAI('nombre', 'Nombre completo del cliente', 'string') }}",
+            "titulo": "={{ $fromAI('titulo', 'Título de la reunión', 'string') }}",
+            "fecha": "={{ $fromAI('fecha', 'Fecha y hora de la reunión en formato ISO 8601', 'string') }}"
+          },
+          "schema": [
+            {
+              "id": "email",
+              "displayName": "email",
+              "required": true,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": false,
+              "removed": false
+            },
+            {
+              "id": "nombre",
+              "displayName": "nombre",
+              "required": true,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": false,
+              "removed": false
+            },
+            {
+              "id": "titulo",
+              "displayName": "titulo",
+              "required": true,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": false,
+              "removed": false
+            },
+            {
+              "id": "fecha",
+              "displayName": "fecha",
+              "required": true,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": false,
+              "removed": false
+            }
+          ],
+          "matchingColumns": [],
+          "attemptToConvertTypes": false,
+          "convertFieldsToString": false
+        }
+      },
+      "id": "7a79f6d0-201d-40e7-a368-955b5884abe8",
+      "name": "Registrar reunión",
+      "type": "@n8n/n8n-nodes-langchain.toolWorkflow",
+      "typeVersion": 2.1,
+      "position": [
+        752,
+        352
+      ]
+    },
+    {
+      "parameters": {
+        "endpointUrl": "http://localhost:5678/mcp/kike-sheet",
+        "options": {}
+      },
+      "id": "4acf97e0-94a3-4d2e-8b1f-a25641d20553",
+      "name": "sheets mcp reuniones",
+      "type": "@n8n/n8n-nodes-langchain.mcpClientTool",
+      "typeVersion": 1.2,
+      "position": [
+        2048,
+        304
+      ]
+    },
+    {
+      "parameters": {},
+      "type": "@n8n/n8n-nodes-langchain.memoryBufferWindow",
+      "typeVersion": 1.3,
+      "position": [
+        1744,
+        320
+      ],
+      "id": "d587b271-dcca-48af-bd63-32f9482ef334",
+      "name": "Simple Memory"
+    },
+    {
+      "parameters": {
+        "endpointUrl": "http://localhost:5678/mcp/kike-calendar",
+        "options": {
+          "timeout": 60000
+        }
+      },
+      "type": "@n8n/n8n-nodes-langchain.mcpClientTool",
+      "typeVersion": 1.2,
+      "position": [
+        1872,
+        320
+      ],
+      "id": "19c53a48-5a49-4357-83c3-24f233f41373",
+      "name": "calendar"
+    },
+    {
+      "parameters": {
+        "descriptionType": "manual",
+        "toolDescription": "Get many events in Google Calendar",
+        "operation": "getAll",
+        "calendar": {
+          "__rl": true,
+          "value": "26f8ac8bb06e5c43ad565a4151d74700a8e5e237978ccbf3738ca3578db87f76@group.calendar.google.com",
+          "mode": "list",
+          "cachedResultName": "prueba clase"
+        },
+        "limit": "={{ $fromAI('Limit', 'Numero maximo de eventos a devolver', 'number') }}",
+        "timeMin": "={{ DateTime.fromISO($fromAI('After', 'Inicio del rango de busqueda en zona Europe/Madrid, formato naive sin offset, ej: 2026-04-22T00:00:00', 'string'), { zone: 'Europe/Madrid' }).toISO() }}",
+        "timeMax": "={{ DateTime.fromISO($fromAI('Before', 'Fin del rango de busqueda en zona Europe/Madrid, formato naive sin offset, ej: 2026-04-22T23:59:59', 'string'), { zone: 'Europe/Madrid' }).toISO() }}",
+        "options": {}
+      },
+      "id": "3c9e25f3-ec8f-4a74-a07e-bfeeaa5a8a33",
+      "name": "SearchEvent",
+      "type": "n8n-nodes-base.googleCalendarTool",
+      "position": [
+        96,
+        368
+      ],
+      "typeVersion": 1.3,
+      "credentials": {
+        "googleCalendarOAuth2Api": {
+          "id": "lfPk0D1Hd7rcFBZt",
+          "name": "Google Calendar account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "calendar": {
+          "__rl": true,
+          "value": "26f8ac8bb06e5c43ad565a4151d74700a8e5e237978ccbf3738ca3578db87f76@group.calendar.google.com",
+          "mode": "list",
+          "cachedResultName": "prueba clase"
+        },
+        "start": "={{ DateTime.fromISO($fromAI('Start', 'Fecha y hora de inicio en zona Europe/Madrid, formato naive sin offset, ej: 2026-04-22T10:00:00', 'string'), { zone: 'Europe/Madrid' }).toISO() }}",
+        "end": "={{ DateTime.fromISO($fromAI('End', 'Fecha y hora de fin en zona Europe/Madrid, formato naive sin offset, ej: 2026-04-22T11:00:00', 'string'), { zone: 'Europe/Madrid' }).toISO() }}",
+        "additionalFields": {
+          "attendees": [
+            "={{ String($fromAI('attendee_email', 'Email del asistente. Solo email válido, por ejemplo cliente@empresa.com', 'string')).trim().replace(/^mailto:/i, '').replace(/[<>\\\"\\s]/g, '').replace(/[.,;:]+$/, '') }}"
+          ],
+          "description": "={{ $fromAI('event_description', 'The event description', 'string') }}",
+          "summary": "={{ $fromAI('event_title', 'The event title', 'string') }}"
+        }
+      },
+      "id": "27c10a72-cf55-4cc7-ae4d-a56eecb46882",
+      "name": "CreateEvent",
+      "type": "n8n-nodes-base.googleCalendarTool",
+      "position": [
+        224,
+        368
+      ],
+      "typeVersion": 1.3,
+      "credentials": {
+        "googleCalendarOAuth2Api": {
+          "id": "lfPk0D1Hd7rcFBZt",
+          "name": "Google Calendar account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "operation": "update",
+        "calendar": {
+          "__rl": true,
+          "value": "26f8ac8bb06e5c43ad565a4151d74700a8e5e237978ccbf3738ca3578db87f76@group.calendar.google.com",
+          "mode": "list",
+          "cachedResultName": "prueba clase"
+        },
+        "eventId": "={{ $fromAI('Event_ID', 'ID del evento a actualizar', 'string') }}",
+        "updateFields": {
+          "description": "={{ $fromAI('event_description', 'The event description', 'string') }}",
+          "end": "={{ DateTime.fromISO($fromAI('End', 'Fecha y hora de fin en zona Europe/Madrid, formato naive sin offset, ej: 2026-04-22T11:00:00', 'string'), { zone: 'Europe/Madrid' }).toISO() }}",
+          "start": "={{ DateTime.fromISO($fromAI('Start', 'Fecha y hora de inicio en zona Europe/Madrid, formato naive sin offset, ej: 2026-04-22T10:00:00', 'string'), { zone: 'Europe/Madrid' }).toISO() }}",
+          "summary": "={{ $fromAI('event_title', 'The event title', 'string') }}"
+        }
+      },
+      "id": "21442581-cced-4c95-b6ba-888ac7e4234c",
+      "name": "UpdateEvent",
+      "type": "n8n-nodes-base.googleCalendarTool",
+      "position": [
+        336,
+        368
+      ],
+      "typeVersion": 1.3,
+      "credentials": {
+        "googleCalendarOAuth2Api": {
+          "id": "lfPk0D1Hd7rcFBZt",
+          "name": "Google Calendar account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "operation": "delete",
+        "calendar": {
+          "__rl": true,
+          "value": "26f8ac8bb06e5c43ad565a4151d74700a8e5e237978ccbf3738ca3578db87f76@group.calendar.google.com",
+          "mode": "list",
+          "cachedResultName": "prueba clase"
+        },
+        "eventId": "={{ /*n8n-auto-generated-fromAI-override*/ $fromAI('Event_ID', ``, 'string') }}",
+        "options": {}
+      },
+      "id": "2f9069ce-6447-4dac-a56f-925e83e4892c",
+      "name": "DeleteEvent",
+      "type": "n8n-nodes-base.googleCalendarTool",
+      "position": [
+        464,
+        368
+      ],
+      "typeVersion": 1.3,
+      "credentials": {
+        "googleCalendarOAuth2Api": {
+          "id": "lfPk0D1Hd7rcFBZt",
+          "name": "Google Calendar account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "content": "## Google Calendar tools require credentials\nIf you don't have your Google Credentials set up in n8n yet, watch [this](https://www.youtube.com/watch?v=3Ai1EPznlAc) video to learn how to do it.\n\nIf you are using n8n Cloud plans, it's very intuitive to setup and you may not even need the tutorial.",
+        "height": 520,
+        "width": 620,
+        "color": 5
+      },
+      "id": "b5f2e014-70e1-414a-bd94-4efe64454a75",
+      "name": "Sticky Note4",
+      "type": "n8n-nodes-base.stickyNote",
+      "position": [
+        0,
+        0
+      ],
+      "typeVersion": 1
+    },
+    {
+      "parameters": {
+        "path": "kike-calendar"
+      },
+      "type": "@n8n/n8n-nodes-langchain.mcpTrigger",
+      "typeVersion": 2,
+      "position": [
+        160,
+        176
+      ],
+      "id": "e483e91c-9b39-402a-9780-e0ec0ff198aa",
+      "name": "MCP Server Trigger",
+      "webhookId": "ad0fbf88-ffad-4fea-bd35-dbce2b600779"
+    },
+    {
+      "parameters": {
+        "path": "kike-sheet"
+      },
+      "type": "@n8n/n8n-nodes-langchain.mcpTrigger",
+      "typeVersion": 2,
+      "position": [
+        768,
+        128
+      ],
+      "id": "a50f01d3-f60a-45ac-9b99-2ed71d9973a1",
+      "name": "MCP Server Trigger1",
+      "webhookId": "ad0fbf88-ffad-4fea-bd35-dbce2b600779"
+    }
+  ],
+  "pinData": {},
+  "connections": {
+    "When chat message received": {
+      "main": [
+        [
+          {
+            "node": "AI Agent",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "OpenAI Chat Model": {
+      "ai_languageModel": [
+        [
+          {
+            "node": "AI Agent",
+            "type": "ai_languageModel",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Registrar reunión": {
+      "ai_tool": [
+        [
+          {
+            "node": "MCP Server Trigger1",
+            "type": "ai_tool",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "sheets mcp reuniones": {
+      "ai_tool": [
+        [
+          {
+            "node": "AI Agent",
+            "type": "ai_tool",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Simple Memory": {
+      "ai_memory": [
+        [
+          {
+            "node": "AI Agent",
+            "type": "ai_memory",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "calendar": {
+      "ai_tool": [
+        [
+          {
+            "node": "AI Agent",
+            "type": "ai_tool",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "SearchEvent": {
+      "ai_tool": [
+        [
+          {
+            "node": "MCP Server Trigger",
+            "type": "ai_tool",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "CreateEvent": {
+      "ai_tool": [
+        [
+          {
+            "node": "MCP Server Trigger",
+            "type": "ai_tool",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "UpdateEvent": {
+      "ai_tool": [
+        [
+          {
+            "node": "MCP Server Trigger",
+            "type": "ai_tool",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "DeleteEvent": {
+      "ai_tool": [
+        [
+          {
+            "node": "MCP Server Trigger",
+            "type": "ai_tool",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": true,
+  "settings": {
+    "executionOrder": "v1",
+    "binaryMode": "separate"
+  },
+  "versionId": "6f00ddd9-8376-40b5-9594-9228482b0196",
+  "meta": {
+    "templateCredsSetupCompleted": true,
+    "instanceId": "ffd72b706b1c72d2b3708c3551df9b9d653765952a7acf3534136c2fc40441a1"
+  },
+  "id": "mswP33p4vQSJZOgH",
+  "tags": [
+    {
+      "updatedAt": "2026-04-21T17:30:27.292Z",
+      "createdAt": "2026-04-21T17:30:27.292Z",
+      "id": "8QULOcvHrvWtGVmd",
+      "name": "Salva"
+    }
+  ]
+}
